@@ -15,6 +15,7 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
+        os.environ["NOVSMART_DEBUG"] = "1"
         from .ai_service import enable_debug_mode
         enable_debug_mode()
         print("🔍 调试模式已启用，日志将写入 log/ 目录")

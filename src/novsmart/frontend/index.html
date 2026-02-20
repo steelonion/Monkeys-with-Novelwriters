@@ -49,6 +49,7 @@
     <div class="panel" id="charactersPanel" style="display:none">
       <div class="panel-title">
         <i class="icon">👥</i> 角色状态
+        <span class="sidebar-state-label">主线</span>
         <button class="btn btn-sm btn-ghost" onclick="openAddCharacterModal()">+ 添加</button>
       </div>
       <div id="charactersList" class="characters-list"></div>
@@ -132,6 +133,32 @@
       </div>
     </section>
   </main>
+
+  <!-- ═══════════════════ 右侧工作区面板 ═══════════════════ -->
+  <aside id="workspace" class="workspace" style="display:none">
+    <div class="workspace-header">
+      <h3>🔧 工作区</h3>
+      <span class="workspace-hint">主线 + 本轮对话更新</span>
+    </div>
+
+    <!-- 工作区角色 -->
+    <div class="workspace-section">
+      <div class="workspace-section-title">👥 角色状态</div>
+      <div id="workspaceCharacters" class="workspace-content"></div>
+    </div>
+
+    <!-- 工作区世界设定 -->
+    <div class="workspace-section">
+      <div class="workspace-section-title">🌍 世界设定</div>
+      <div id="workspaceWorld" class="workspace-content"></div>
+    </div>
+
+    <!-- 工作区地点 -->
+    <div class="workspace-section">
+      <div class="workspace-section-title">📍 地点</div>
+      <div id="workspaceLocations" class="workspace-content"></div>
+    </div>
+  </aside>
 
   <!-- ═══════════════════ 新建会话 Modal ═══════════════════ -->
   <div class="modal-overlay" id="newSessionModal">
@@ -296,6 +323,12 @@
 
   <!-- Toast -->
   <div id="toast" class="toast"></div>
+
+  <!-- AI 任务状态栏 -->
+  <div id="statusBar" class="status-bar" style="display:none">
+    <div class="status-bar-spinner"></div>
+    <span id="statusBarText">AI 请求处理中...</span>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

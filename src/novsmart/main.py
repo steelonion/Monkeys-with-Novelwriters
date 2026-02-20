@@ -15,7 +15,7 @@ from .models import (
     AddMainlineRequest, UpdateMainlineEntryRequest, ReorderMainlineRequest,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
-from .ai_service import ai_service
+from .ai_service import ai_service, get_active_tasks
 from .session_manager import session_manager
 
 app = FastAPI(title="NovSmart - AI小说写作框架", version="1.0.0")
@@ -33,6 +33,14 @@ app.add_middleware(
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+
+# ────────────────────────────── 任务状态 ──────────────────────────────
+
+@app.get("/api/tasks/active")
+async def active_tasks():
+    """获取当前正在运行的 AI 请求数"""
+    return {"active": get_active_tasks()}
 
 
 # ────────────────────────────── API 配置 ──────────────────────────────

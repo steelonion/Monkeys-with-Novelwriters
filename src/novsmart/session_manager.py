@@ -3,6 +3,7 @@
 """
 
 from __future__ import annotations
+import copy
 import json
 import os
 import hashlib
@@ -238,9 +239,27 @@ class SessionManager:
         for i, e in enumerate(session.mainline):
             e.order = i
 
+        # 快照当前状态到主线状态
+        self._snapshot_mainline_state(session)
+
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
         return entry
+
+    def _snapshot_mainline_state(self, session: Session) -> None:
+        """将当前会话状态快照到主线状态字段"""
+        session.mainline_characters = {
+            name: char.model_copy(deep=True)
+            for name, char in session.characters.items()
+        }
+        if session.world_setting:
+            session.mainline_world_setting = session.world_setting.model_copy(deep=True)
+        if session.session_config:
+            session.mainline_session_config = session.session_config.model_copy(deep=True)
+        session.mainline_locations = {
+            name: loc.model_copy(deep=True)
+            for name, loc in session.locations.items()
+        }
 
     def remove_mainline_entry(self, session_id: str, entry_id: str) -> bool:
         """从主线中移除一个条目"""

@@ -9,6 +9,9 @@ let sessions = [];
 let sessionModalMode = 'create'; // 'create' or 'edit'
 let currentMainline = [];       // 当前主线数据
 let currentMainlineSummary = ''; // 当前主线概述
+let _taskPollTimer = null;       // 任务轮询定时器
+let _activeTasks = 0;            // 当前活跃的 AI 任务数
+let _currentSession = null;      // 完整的当前会话数据（用于工作区对比）
 
 // ─────────── 工具函数 ───────────
 
@@ -230,6 +233,7 @@ async function smartParseAndFill() {
   btn.textContent = '解析并创建中...';
   statusEl.className = 'status-badge';
   statusEl.style.display = 'none';
+  startTaskPolling();
 
   try {
     // 直接调用解析+创建会话接口，避免表单填充丢失角色和地点
@@ -249,6 +253,7 @@ async function smartParseAndFill() {
   } finally {
     btn.disabled = false;
     btn.textContent = '✦ 智能解析并创建';
+    stopTaskPolling();
   }
 }
 
@@ -334,27 +339,36 @@ async function selectSession(sid) {
 }
 
 function renderSession(session) {
+  _currentSession = session;
   $('#sessionTitle').textContent = session.name || '未命名会话';
   $('#inputArea').style.display = '';
   $('#btnUndo').disabled = !session.history || session.history.length === 0;
   $('#btnClearHistory').disabled = !session.history || session.history.length === 0;
   $('#btnExport').disabled = !session.history || session.history.length === 0;
 
+  // 侧边栏显示主线状态(已提交的快照)，如果没有主线快照则显示当前状态
+  const sidebarChars = (session.mainline_characters && Object.keys(session.mainline_characters).length)
+    ? session.mainline_characters : session.characters || {};
+  const sidebarWorld = session.mainline_world_setting || session.world_setting;
+  const sidebarConfig = session.mainline_session_config || session.session_config;
+  const sidebarLocs = (session.mainline_locations && Object.keys(session.mainline_locations).length)
+    ? session.mainline_locations : session.locations || {};
+
   // 角色面板
   $('#charactersPanel').style.display = '';
-  renderCharacters(session.characters || {});
+  renderCharacters(sidebarChars);
 
   // 世界面板
   $('#worldPanel').style.display = '';
-  renderWorldInfo(session.world_setting);
+  renderWorldInfo(sidebarWorld);
 
   // 会话配置面板
   $('#sessionConfigPanel').style.display = '';
-  renderSessionConfig(session.session_config);
+  renderSessionConfig(sidebarConfig);
 
   // 地点面板
   $('#locationsPanel').style.display = '';
-  renderLocations(session.locations || {});
+  renderLocations(sidebarLocs);
 
   // 主线面板
   $('#mainlinePanel').style.display = '';
@@ -364,9 +378,13 @@ function renderSession(session) {
 
   // 故事区
   renderStory(session.history || []);
+
+  // 右侧工作区
+  renderWorkspace(session);
 }
 
 function showWelcome() {
+  _currentSession = null;
   $('#sessionTitle').textContent = '请选择或创建一个会话';
   $('#inputArea').style.display = 'none';
   $('#charactersPanel').style.display = 'none';
@@ -379,6 +397,7 @@ function showWelcome() {
   $('#btnExport').disabled = true;
   currentMainline = [];
   currentMainlineSummary = '';
+  $('#workspace').style.display = 'none';
   $('#storyArea').innerHTML = `
     <div class="story-welcome">
       <div class="welcome-icon">✨</div>
@@ -398,11 +417,20 @@ function renderCharacters(chars) {
   }
   container.innerHTML = names.map(name => {
     const c = chars[name];
+    let customHtml = '';
+    if (c.custom_fields && Object.keys(c.custom_fields).length) {
+      customHtml = '<div class="char-custom-fields">' +
+        Object.entries(c.custom_fields).map(([k, v]) => {
+          const valStr = typeof v === 'object' ? JSON.stringify(v, null, 0) : String(v);
+          return `<div class="char-custom-field-item"><span class="char-custom-field-key">${escHtml(k)}</span>: ${escHtml(valStr)}</div>`;
+        }).join('') + '</div>';
+    }
     return `
       <div class="char-card" onclick='showCharDetail(${JSON.stringify(c).replace(/'/g, "&#39;")})'>
         <div class="char-name">${escHtml(c.name)}</div>
         <div class="char-status">${escHtml(c.status || '未知状态')}</div>
         <div class="char-location">📍 ${escHtml(c.location || '未知位置')}</div>
+        ${customHtml}
       </div>`;
   }).join('');
 }
@@ -414,6 +442,14 @@ function showCharDetail(c) {
     : '无';
   const inv = c.inventory && c.inventory.length ? c.inventory.join('、') : '无';
 
+  let customFieldsHtml = '';
+  if (c.custom_fields && Object.keys(c.custom_fields).length) {
+    customFieldsHtml = Object.entries(c.custom_fields).map(([k, v]) => {
+      const valStr = typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
+      return `<div class="char-detail-item full"><div class="char-detail-label">${escHtml(k)}</div><div class="char-detail-value">${escHtml(valStr)}</div></div>`;
+    }).join('');
+  }
+
   $('#charDetailBody').innerHTML = `
     <div class="char-detail-grid">
       <div class="char-detail-item"><div class="char-detail-label">描述</div><div class="char-detail-value">${escHtml(c.description || '暂无')}</div></div>
@@ -423,6 +459,7 @@ function showCharDetail(c) {
       <div class="char-detail-item full"><div class="char-detail-label">关系</div><div class="char-detail-value">${escHtml(rels)}</div></div>
       <div class="char-detail-item full"><div class="char-detail-label">随身物品</div><div class="char-detail-value">${escHtml(inv)}</div></div>
       <div class="char-detail-item full"><div class="char-detail-label">备注</div><div class="char-detail-value">${escHtml(c.notes || '暂无')}</div></div>
+      ${customFieldsHtml}
     </div>`;
   openModal('charDetailModal');
 }
@@ -449,6 +486,7 @@ async function addCharacter() {
       notes: $('#charNotes').value.trim(),
       relationships: {},
       inventory: [],
+      custom_fields: {},
     };
 
     const updated = await apiJson('/api/session/setting', {
@@ -607,6 +645,10 @@ async function generate() {
   btn.classList.add('loading');
   btn.disabled = true;
 
+  // 显示故事区 loading 动画 & 启动任务轮询
+  showStoryLoading();
+  startTaskPolling();
+
   try {
     const body = {
       session_id: currentSessionId,
@@ -618,6 +660,9 @@ async function generate() {
       method: 'POST',
       body: JSON.stringify(body),
     });
+
+    // 移除 loading 动画
+    removeStoryLoading();
 
     // 追加到故事区
     const area = $('#storyArea');
@@ -642,11 +687,35 @@ async function generate() {
     area.appendChild(block);
     requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
 
-    // 更新侧边栏
-    renderCharacters(data.characters || {});
-    renderWorldInfo(data.world_setting);
-    renderSessionConfig(data.session_config);
-    renderLocations(data.locations || {});
+    // 更新侧边栏（仍显示主线状态）
+    if (_currentSession) {
+      // 更新当前工作状态（用于工作区对比）
+      _currentSession.characters = data.characters || {};
+      _currentSession.world_setting = data.world_setting;
+      _currentSession.session_config = data.session_config;
+      _currentSession.locations = data.locations || {};
+
+      // 侧边栏显示主线状态
+      const sidebarChars = (_currentSession.mainline_characters && Object.keys(_currentSession.mainline_characters).length)
+        ? _currentSession.mainline_characters : data.characters || {};
+      const sidebarWorld = _currentSession.mainline_world_setting || data.world_setting;
+      const sidebarConfig = _currentSession.mainline_session_config || data.session_config;
+      const sidebarLocs = (_currentSession.mainline_locations && Object.keys(_currentSession.mainline_locations).length)
+        ? _currentSession.mainline_locations : data.locations || {};
+
+      renderCharacters(sidebarChars);
+      renderWorldInfo(sidebarWorld);
+      renderSessionConfig(sidebarConfig);
+      renderLocations(sidebarLocs);
+
+      // 刷新工作区
+      renderWorkspace(_currentSession);
+    } else {
+      renderCharacters(data.characters || {});
+      renderWorldInfo(data.world_setting);
+      renderSessionConfig(data.session_config);
+      renderLocations(data.locations || {});
+    }
 
     // 清空输入
     $('#userPrompt').value = '';
@@ -656,11 +725,171 @@ async function generate() {
 
     showToast('生成完成');
   } catch (e) {
+    removeStoryLoading();
     showToast('生成失败: ' + e.message);
   } finally {
     btn.classList.remove('loading');
     btn.disabled = false;
+    stopTaskPolling();
   }
+}
+
+// ─────────── 工作区（右侧面板） ───────────
+
+function renderWorkspace(session) {
+  const wsEl = $('#workspace');
+  if (!session) { wsEl.style.display = 'none'; return; }
+
+  wsEl.style.display = '';
+
+  const currentChars = session.characters || {};
+  const mainlineChars = session.mainline_characters || {};
+  const currentWorld = session.world_setting;
+  const mainlineWorld = session.mainline_world_setting;
+  const currentLocs = session.locations || {};
+  const mainlineLocs = session.mainline_locations || {};
+
+  // 角色工作区
+  renderWorkspaceCharacters(currentChars, mainlineChars);
+
+  // 世界设定工作区
+  renderWorkspaceWorld(currentWorld, mainlineWorld);
+
+  // 地点工作区
+  renderWorkspaceLocations(currentLocs, mainlineLocs);
+}
+
+function renderWorkspaceCharacters(current, mainline) {
+  const container = $('#workspaceCharacters');
+  const allNames = new Set([...Object.keys(current), ...Object.keys(mainline)]);
+
+  if (!allNames.size) {
+    container.innerHTML = '<p class="empty-hint">暂无角色</p>';
+    return;
+  }
+
+  let html = '';
+  for (const name of allNames) {
+    const cur = current[name];
+    const ml = mainline[name];
+    const isNew = cur && !ml;
+    const isChanged = cur && ml && _isCharChanged(cur, ml);
+    const charData = cur || ml;
+
+    const cardClass = isNew ? 'ws-char-card ws-changed' : (isChanged ? 'ws-char-card ws-changed' : 'ws-char-card');
+    const badge = isNew ? '<span class="ws-badge-new">新</span>' : (isChanged ? '<span class="ws-badge-updated">已更新</span>' : '');
+
+    html += `<div class="${cardClass}">`;
+    html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}</div>`;
+
+    // 展示关键字段，如果和主线不同则高亮
+    const fields = [
+      ['状态', 'status'], ['位置', 'location'], ['描述', 'description']
+    ];
+    for (const [label, key] of fields) {
+      if (!charData[key]) continue;
+      const changed = ml && cur && ml[key] !== cur[key];
+      html += `<div class="ws-char-field"><span class="ws-label">${label}:</span> `;
+      html += changed ? `<span class="ws-diff">${escHtml(cur[key])}</span>` : escHtml(charData[key]);
+      html += '</div>';
+    }
+
+    // 自定义字段
+    if (charData.custom_fields && Object.keys(charData.custom_fields).length) {
+      html += '<div class="ws-custom-fields">';
+      for (const [k, v] of Object.entries(charData.custom_fields)) {
+        const valStr = typeof v === 'object' ? JSON.stringify(v, null, 0) : String(v);
+        const mlCf = ml && ml.custom_fields ? ml.custom_fields[k] : undefined;
+        const cfChanged = mlCf !== undefined && JSON.stringify(mlCf) !== JSON.stringify(v);
+        const isNewCf = mlCf === undefined && isChanged;
+        html += `<div class="ws-custom-field"><span class="ws-custom-key">${escHtml(k)}:</span> `;
+        html += (cfChanged || isNewCf) ? `<span class="ws-diff">${escHtml(valStr)}</span>` : `<span class="ws-custom-val">${escHtml(valStr)}</span>`;
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function _isCharChanged(cur, ml) {
+  const keys = ['status', 'location', 'description', 'personality', 'notes'];
+  for (const k of keys) {
+    if ((cur[k] || '') !== (ml[k] || '')) return true;
+  }
+  if (JSON.stringify(cur.relationships || {}) !== JSON.stringify(ml.relationships || {})) return true;
+  if (JSON.stringify(cur.inventory || []) !== JSON.stringify(ml.inventory || [])) return true;
+  if (JSON.stringify(cur.custom_fields || {}) !== JSON.stringify(ml.custom_fields || {})) return true;
+  return false;
+}
+
+function renderWorkspaceWorld(current, mainline) {
+  const container = $('#workspaceWorld');
+  if (!current) {
+    container.innerHTML = '<p class="empty-hint">暂无世界设定</p>';
+    return;
+  }
+
+  let html = '';
+  const fields = [
+    ['标题', 'title'], ['类型', 'genre'], ['背景', 'background'],
+    ['剧情弧', 'current_arc'],
+  ];
+  for (const [label, key] of fields) {
+    const val = current[key];
+    if (!val) continue;
+    const changed = mainline && mainline[key] && mainline[key] !== val;
+    html += `<div class="ws-world-item">`;
+    html += `<div class="ws-world-label">${label}</div>`;
+    html += `<div class="ws-world-value${changed ? ' ws-diff' : ''}">${escHtml(val)}</div>`;
+    html += '</div>';
+  }
+
+  // extra_settings
+  if (current.extra_settings) {
+    for (const [k, v] of Object.entries(current.extra_settings)) {
+      const mlVal = mainline && mainline.extra_settings ? mainline.extra_settings[k] : undefined;
+      const changed = mlVal !== undefined && mlVal !== v;
+      html += `<div class="ws-world-item">`;
+      html += `<div class="ws-world-label">${escHtml(k)}</div>`;
+      html += `<div class="ws-world-value${changed ? ' ws-diff' : ''}">${escHtml(v)}</div>`;
+      html += '</div>';
+    }
+  }
+
+  container.innerHTML = html || '<p class="empty-hint">暂无世界设定</p>';
+}
+
+function renderWorkspaceLocations(current, mainline) {
+  const container = $('#workspaceLocations');
+  const allNames = new Set([...Object.keys(current), ...Object.keys(mainline)]);
+
+  if (!allNames.size) {
+    container.innerHTML = '<p class="empty-hint">暂无地点</p>';
+    return;
+  }
+
+  let html = '';
+  for (const name of allNames) {
+    const cur = current[name];
+    const ml = mainline[name];
+    const isNew = cur && !ml;
+    const isChanged = cur && ml && JSON.stringify(cur) !== JSON.stringify(ml);
+    const locData = cur || ml;
+
+    const cardClass = (isNew || isChanged) ? 'ws-loc-card ws-changed' : 'ws-loc-card';
+    html += `<div class="${cardClass}">`;
+    html += `<div class="ws-loc-name">📍 ${escHtml(locData.name)}`;
+    if (isNew) html += ' <span class="ws-badge-new">新</span>';
+    else if (isChanged) html += ' <span class="ws-badge-updated">已更新</span>';
+    html += '</div>';
+    if (locData.description) {
+      html += `<div class="ws-char-field">${escHtml(locData.description)}</div>`;
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
 }
 
 // ─────────── 撤销 ───────────
@@ -784,6 +1013,17 @@ async function addToMainline(btnEl) {
     currentMainlineSummary = data.mainline_summary || '';
     renderMainlinePanel();
 
+    // 收入主线时会快照当前状态，需要刷新 session 数据以更新工作区
+    try {
+      const fullSession = await apiJson(`/api/session/${currentSessionId}`);
+      _currentSession = fullSession;
+      // 侧边栏变为使用新的主线快照
+      const sidebarChars = (fullSession.mainline_characters && Object.keys(fullSession.mainline_characters).length)
+        ? fullSession.mainline_characters : fullSession.characters || {};
+      renderCharacters(sidebarChars);
+      renderWorkspace(fullSession);
+    } catch (_) { /* 不影响主流程 */ }
+
     btnEl.textContent = '✅ 已收入';
     btnEl.classList.add('added');
     showToast('已收入主线');
@@ -844,6 +1084,7 @@ async function regenerateMainlineSummary() {
   const btn = $('#btnRegenerateSummary');
   btn.disabled = true;
   btn.textContent = '⏳ 生成中...';
+  startTaskPolling();
 
   try {
     const data = await apiJson(`/api/session/${currentSessionId}/mainline/regenerate-summary`, {
@@ -859,6 +1100,7 @@ async function regenerateMainlineSummary() {
   } finally {
     btn.disabled = false;
     btn.textContent = '🔄 重新生成';
+    stopTaskPolling();
   }
 }
 
@@ -885,6 +1127,68 @@ document.addEventListener('click', e => {
     e.target.classList.remove('open');
   }
 });
+
+// ─────────── AI 任务状态栏 ───────────
+
+function startTaskPolling() {
+  if (_taskPollTimer) return;
+  _pollActiveTasks(); // 立即执行一次
+  _taskPollTimer = setInterval(_pollActiveTasks, 2000);
+}
+
+function stopTaskPolling() {
+  if (_taskPollTimer) {
+    clearInterval(_taskPollTimer);
+    _taskPollTimer = null;
+  }
+  _updateStatusBar(0);
+}
+
+async function _pollActiveTasks() {
+  try {
+    const data = await apiJson('/api/tasks/active');
+    _activeTasks = data.active || 0;
+    _updateStatusBar(_activeTasks);
+  } catch {
+    // 轮询失败不影响使用
+  }
+}
+
+function _updateStatusBar(count) {
+  const bar = $('#statusBar');
+  const text = $('#statusBarText');
+  if (count > 0) {
+    text.textContent = `${count} 个 AI 请求正在处理中...`;
+    bar.style.display = 'flex';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+// ─────────── 故事区 Loading 指示器 ───────────
+
+function showStoryLoading() {
+  const area = $('#storyArea');
+  // 清除欢迎界面
+  if (area.querySelector('.story-welcome')) area.innerHTML = '';
+  // 移除已有的 loading
+  removeStoryLoading();
+  // 添加 loading 指示器
+  const loader = document.createElement('div');
+  loader.className = 'story-loading';
+  loader.id = 'storyLoadingIndicator';
+  loader.innerHTML = `
+    <div class="story-loading-spinner"></div>
+    <span class="story-loading-text">AI 正在创作中，请稍候...</span>
+  `;
+  area.appendChild(loader);
+  requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+}
+
+function removeStoryLoading() {
+  const el = $('#storyLoadingIndicator');
+  if (el) el.remove();
+}
 
 // ─────────── 初始化 ───────────
 

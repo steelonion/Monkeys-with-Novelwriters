@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 import uuid
 
@@ -21,6 +21,7 @@ class CharacterState(BaseModel):
     relationships: dict[str, str] = Field(default_factory=dict, description="与其他角色的关系 {角色名: 关系描述}")
     inventory: list[str] = Field(default_factory=list, description="随身物品")
     notes: str = Field(default="", description="其他备注信息")
+    custom_fields: dict[str, Any] = Field(default_factory=dict, description="自定义扩展字段(如技能、属性、等级等)")
 
 
 # ────────────────────────────── 地点设定 ──────────────────────────────
@@ -101,6 +102,12 @@ class Session(BaseModel):
     mainline: list[MainlineEntry] = Field(default_factory=list, description="文章主线条目列表")
     mainline_summary: str = Field(default="", description="主线内容的LLM概述，作为AI上文提示")
     mainline_summary_hash: str = Field(default="", description="生成概述时主线内容的哈希，用于判断是否需要重新生成")
+
+    # 主线状态快照（收入主线时冻结的"正式"状态）
+    mainline_characters: dict[str, CharacterState] = Field(default_factory=dict, description="主线快照：角色状态")
+    mainline_world_setting: Optional[WorldSetting] = Field(default=None, description="主线快照：世界设定")
+    mainline_session_config: Optional[SessionConfig] = Field(default=None, description="主线快照：会话配置")
+    mainline_locations: dict[str, LocationSetting] = Field(default_factory=dict, description="主线快照：地点设定")
 
 
 # ────────────────────────────── API 请求/响应 ─────────────────────────

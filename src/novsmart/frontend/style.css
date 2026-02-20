@@ -24,6 +24,7 @@
   --shadow: 0 4px 24px rgba(0,0,0,0.3);
   --transition: 0.2s ease;
   --sidebar-width: 320px;
+  --workspace-width: 340px;
   --font-serif: 'Noto Serif SC', serif;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -807,4 +808,238 @@ label textarea::placeholder { color: var(--text-muted); }
   font-size: 0.75rem;
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* ─────────── AI 任务状态栏 ─────────── */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  z-index: 1500;
+  animation: statusBarSlideUp 0.3s ease;
+}
+@keyframes statusBarSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.status-bar-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ─────────── 故事区生成中 Loading ─────────── */
+.story-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0;
+  animation: fadeInUp 0.4s ease;
+}
+.story-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+.story-loading-text {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  animation: loadingPulse 1.5s ease-in-out infinite;
+}
+@keyframes loadingPulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
+/* ─────────── 右侧工作区面板 ─────────── */
+.workspace {
+  width: var(--workspace-width);
+  min-width: var(--workspace-width);
+  height: 100vh;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transition: margin-right var(--transition);
+  z-index: 100;
+}
+
+.workspace-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.workspace-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.workspace-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.workspace-section {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+}
+.workspace-section-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.workspace-content {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* 工作区角色卡片 */
+.ws-char-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.ws-char-card.ws-changed {
+  border-left: 3px solid var(--accent);
+}
+.ws-char-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ws-badge-new {
+  font-size: 0.65rem;
+  background: var(--success);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.ws-badge-updated {
+  font-size: 0.65rem;
+  background: var(--accent);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.ws-char-field {
+  color: var(--text-secondary);
+  margin: 2px 0;
+}
+.ws-char-field .ws-label {
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+.ws-char-field .ws-diff {
+  color: var(--warning);
+  font-weight: 500;
+}
+
+/* 工作区地点卡片 */
+.ws-loc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 6px;
+}
+.ws-loc-card.ws-changed {
+  border-left: 3px solid var(--accent);
+}
+.ws-loc-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+/* 工作区世界设定 */
+.ws-world-item {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ws-world-item:last-child {
+  border-bottom: none;
+}
+.ws-world-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.ws-world-value {
+  color: var(--text-primary);
+}
+
+/* 自定义字段样式 */
+.ws-custom-fields {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+.ws-custom-field {
+  display: flex;
+  gap: 4px;
+  margin: 1px 0;
+}
+.ws-custom-key {
+  color: var(--accent);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.ws-custom-val {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+/* 角色面板中的自定义字段（左侧侧边栏） */
+.char-custom-fields {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.char-custom-field-item {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
+}
+.char-custom-field-key {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* 角色面板显示"主线"标签 */
+.sidebar-state-label {
+  font-size: 0.65rem;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+  font-weight: 400;
 }
