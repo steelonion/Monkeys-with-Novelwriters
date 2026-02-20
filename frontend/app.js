@@ -169,6 +169,8 @@ async function createSession() {
       genre: $('#newGenre').value.trim(),
       background: $('#newBackground').value.trim(),
       rules,
+    },
+    session_config: {
       current_arc: $('#newArc').value.trim(),
       custom_instructions: $('#newInstructions').value.trim(),
     },
@@ -251,13 +253,14 @@ async function smartParseAndFill() {
 
 function fillFormFromParsedData(data) {
   const ws = data.world_setting || {};
+  const sc = data.session_config || {};
   $('#newSessionName').value = data.session_name || '';
   $('#newTitle').value = ws.title || '';
   $('#newGenre').value = ws.genre || '';
   $('#newBackground').value = ws.background || '';
   $('#newRules').value = (ws.rules || []).join('\n');
-  $('#newArc').value = ws.current_arc || '';
-  $('#newInstructions').value = ws.custom_instructions || '';
+  $('#newArc').value = sc.current_arc || ws.current_arc || '';
+  $('#newInstructions').value = sc.custom_instructions || ws.custom_instructions || '';
 }
 
 function clearSessionFormFields() {
@@ -275,13 +278,14 @@ async function openEditSessionModal() {
     sessionModalMode = 'edit';
 
     const ws = session.world_setting || {};
+    const sc = session.session_config || {};
     $('#newSessionName').value = session.name || '';
     $('#newTitle').value = ws.title || '';
     $('#newGenre').value = ws.genre || '';
     $('#newBackground').value = ws.background || '';
     $('#newRules').value = (ws.rules || []).join('\n');
-    $('#newArc').value = ws.current_arc || '';
-    $('#newInstructions').value = ws.custom_instructions || '';
+    $('#newArc').value = sc.current_arc || '';
+    $('#newInstructions').value = sc.custom_instructions || '';
 
     switchCreateMode('manual');
     $('#sessionModalTitle').textContent = '编辑会话设定';
@@ -298,6 +302,8 @@ async function updateSessionSettings() {
     genre: $('#newGenre').value.trim(),
     background: $('#newBackground').value.trim(),
     rules: $('#newRules').value.trim().split('\n').filter(Boolean),
+  };
+  const sc = {
     current_arc: $('#newArc').value.trim(),
     custom_instructions: $('#newInstructions').value.trim(),
   };
@@ -305,7 +311,7 @@ async function updateSessionSettings() {
   try {
     const updated = await apiJson('/api/session/setting', {
       method: 'PUT',
-      body: JSON.stringify({ session_id: currentSessionId, name, world_setting: ws }),
+      body: JSON.stringify({ session_id: currentSessionId, name, world_setting: ws, session_config: sc }),
     });
 
     closeModal('newSessionModal');
@@ -352,6 +358,10 @@ function renderSession(session) {
   $('#worldPanel').style.display = '';
   renderWorldInfo(session.world_setting);
 
+  // 会话配置面板
+  $('#sessionConfigPanel').style.display = '';
+  renderSessionConfig(session.session_config);
+
   // 地点面板
   $('#locationsPanel').style.display = '';
   renderLocations(session.locations || {});
@@ -365,6 +375,7 @@ function showWelcome() {
   $('#inputArea').style.display = 'none';
   $('#charactersPanel').style.display = 'none';
   $('#worldPanel').style.display = 'none';
+  $('#sessionConfigPanel').style.display = 'none';
   $('#locationsPanel').style.display = 'none';
   $('#btnUndo').disabled = true;
   $('#btnExport').disabled = true;
@@ -462,8 +473,6 @@ function renderWorldInfo(ws) {
     ['类型', ws.genre],
     ['世界观', ws.background],
     ['规则', (ws.rules || []).join('；')],
-    ['剧情弧', ws.current_arc],
-    ['风格', ws.custom_instructions],
   ];
   let html = '';
   for (const [label, val] of fields) {
@@ -475,6 +484,19 @@ function renderWorldInfo(ws) {
     }
   }
   $('#worldInfo').innerHTML = html || '<p class="empty-hint">暂无设定</p>';
+}
+
+function renderSessionConfig(sc) {
+  if (!sc) { $('#sessionConfigInfo').innerHTML = ''; return; }
+  const fields = [
+    ['剧情弧', sc.current_arc],
+    ['写作风格', sc.custom_instructions],
+  ];
+  let html = '';
+  for (const [label, val] of fields) {
+    if (val) html += `<div class="wi-row"><span class="wi-label">${label}</span>${escHtml(val)}</div>`;
+  }
+  $('#sessionConfigInfo').innerHTML = html || '<p class="empty-hint">暂无配置</p>';
 }
 
 // ─────────── 地点 ───────────
@@ -617,6 +639,7 @@ async function generate() {
     // 更新侧边栏
     renderCharacters(data.characters || {});
     renderWorldInfo(data.world_setting);
+    renderSessionConfig(data.session_config);
     renderLocations(data.locations || {});
 
     // 清空输入

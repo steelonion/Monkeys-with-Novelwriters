@@ -8,7 +8,7 @@ import re
 import copy
 from pathlib import Path
 from openai import AsyncOpenAI
-from models import CharacterState, LocationSetting, WorldSetting, Session
+from models import CharacterState, LocationSetting, WorldSetting, SessionConfig, Session
 
 # 配置文件路径
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
@@ -103,9 +103,11 @@ PARSE_TEXT_PROMPT = """\
     "genre": "小说类型（如玄幻/科幻/都市/言情等）",
     "background": "世界观背景描述",
     "rules": ["规则1", "规则2"],
-    "current_arc": "当前主要剧情弧",
-    "custom_instructions": "写作风格/要求",
     "extra_settings": {{"其他设定key": "value"}}
+  }},
+  "session_config": {{
+    "current_arc": "当前主要剧情弧",
+    "custom_instructions": "写作风格/要求"
   }},
   "locations": {{
     "地点名": {{
@@ -137,7 +139,9 @@ PARSE_TEXT_PROMPT = """\
 2. 文本中未提及的字段留空字符串或空数组/对象。
 3. 如果文本中有多个角色，全部提取。
 4. session_name 应简短概括该小说主题（5-15字）。
-5. 只输出 JSON，不要输出额外的解释文字。
+5. world_setting 只放世界观构建相关的信息（标题、类型、背景、规则等）。
+6. session_config 放会话级别的配置（剧情弧、写作风格要求等）。
+7. 只输出 JSON，不要输出额外的解释文字。
 """
 
 
@@ -201,6 +205,7 @@ def _build_recent_story(history, max_steps: int = 3) -> str:
 def build_system_prompt(session: Session) -> str:
     """根据会话状态构建完整的系统提示词"""
     ws = session.world_setting
+    sc = session.session_config
 
     rules_text = "\n".join(f"  - {r}" for r in ws.rules) if ws.rules else "暂无"
     extra = ""
@@ -212,8 +217,8 @@ def build_system_prompt(session: Session) -> str:
         genre=ws.genre or "未定",
         background=ws.background or "暂无",
         rules=rules_text,
-        current_arc=ws.current_arc or "暂无",
-        custom_instructions=ws.custom_instructions or "无特殊要求",
+        current_arc=sc.current_arc or "暂无",
+        custom_instructions=sc.custom_instructions or "无特殊要求",
         extra_settings=extra,
         locations_block=_build_locations_block(session.locations),
         characters_block=_build_characters_block(session.characters),
@@ -230,14 +235,17 @@ def parse_ai_response(
     raw_text: str,
     existing_characters: dict[str, CharacterState],
     existing_world: WorldSetting,
+    existing_session_config: SessionConfig | None = None,
     existing_locations: dict[str, LocationSetting] | None = None,
-) -> tuple[str, dict[str, CharacterState], WorldSetting, dict[str, LocationSetting]]:
+) -> tuple[str, dict[str, CharacterState], WorldSetting, SessionConfig, dict[str, LocationSetting]]:
     """
     解析 AI 返回的文本，分离小说正文和状态更新 JSON。
-    返回: (story_text, updated_characters, updated_world, updated_locations)
+    返回: (story_text, updated_characters, updated_world, updated_session_config, updated_locations)
     """
     if existing_locations is None:
         existing_locations = {}
+    if existing_session_config is None:
+        existing_session_config = SessionConfig()
 
     # 分离正文和 JSON 部分
     if SEPARATOR in raw_text:
@@ -252,10 +260,11 @@ def parse_ai_response(
     # 深拷贝现有状态
     updated_characters = {k: v.model_copy(deep=True) for k, v in existing_characters.items()}
     updated_world = existing_world.model_copy(deep=True)
+    updated_session_config = existing_session_config.model_copy(deep=True)
     updated_locations = {k: v.model_copy(deep=True) for k, v in existing_locations.items()}
 
     if not json_part.strip():
-        return story_text, updated_characters, updated_world, updated_locations
+        return story_text, updated_characters, updated_world, updated_session_config, updated_locations
 
     # 提取 JSON（可能被 ```json ``` 包裹）
     json_str = json_part.strip()
@@ -272,7 +281,7 @@ def parse_ai_response(
         update_data = json.loads(json_str)
     except json.JSONDecodeError:
         # JSON 解析失败，返回原始状态
-        return story_text, updated_characters, updated_world, updated_locations
+        return story_text, updated_characters, updated_world, updated_session_config, updated_locations
 
     # 更新角色状态
     if "characters" in update_data and isinstance(update_data["characters"], dict):
@@ -295,7 +304,7 @@ def parse_ai_response(
     if "world_update" in update_data and isinstance(update_data["world_update"], dict):
         wu = update_data["world_update"]
         if wu.get("current_arc"):
-            updated_world.current_arc = wu["current_arc"]
+            updated_session_config.current_arc = wu["current_arc"]
         if wu.get("extra_settings") and isinstance(wu["extra_settings"], dict):
             updated_world.extra_settings.update(wu["extra_settings"])
 
@@ -314,7 +323,7 @@ def parse_ai_response(
                     except Exception:
                         updated_locations[loc_name] = LocationSetting(name=loc_name)
 
-    return story_text, updated_characters, updated_world, updated_locations
+    return story_text, updated_characters, updated_world, updated_session_config, updated_locations
 
 
 # ────────────────────────────── AI 调用 ──────────────────────────────
@@ -366,10 +375,10 @@ class AIService:
         user_prompt: str,
         temperature: float = 0.85,
         max_tokens: int = 2000,
-    ) -> tuple[str, dict[str, CharacterState], WorldSetting, dict[str, LocationSetting]]:
+    ) -> tuple[str, dict[str, CharacterState], WorldSetting, SessionConfig, dict[str, LocationSetting]]:
         """
         调用 AI 生成小说片段并解析状态更新。
-        返回: (story_text, updated_characters, updated_world, updated_locations)
+        返回: (story_text, updated_characters, updated_world, updated_session_config, updated_locations)
         """
         if not self.is_configured:
             raise RuntimeError("AI 服务未配置，请先设置 API Key")
@@ -390,21 +399,21 @@ class AIService:
 
         raw_text = response.choices[0].message.content or ""
 
-        story_text, updated_chars, updated_world, updated_locations = parse_ai_response(
-            raw_text, session.characters, session.world_setting, session.locations
+        story_text, updated_chars, updated_world, updated_session_config, updated_locations = parse_ai_response(
+            raw_text, session.characters, session.world_setting, session.session_config, session.locations
         )
 
-        return story_text, updated_chars, updated_world, updated_locations
+        return story_text, updated_chars, updated_world, updated_session_config, updated_locations
 
 
     async def parse_text_to_session(
         self,
         raw_text: str,
         temperature: float = 0.3,
-    ) -> tuple[str, WorldSetting, dict[str, CharacterState], dict[str, LocationSetting]]:
+    ) -> tuple[str, WorldSetting, SessionConfig, dict[str, CharacterState], dict[str, LocationSetting]]:
         """
         解析用户提供的自由文本，通过 LLM 提取结构化的会话设定。
-        返回: (session_name, world_setting, characters, locations)
+        返回: (session_name, world_setting, session_config, characters, locations)
         """
         if not self.is_configured:
             raise RuntimeError("AI 服务未配置，请先设置 API Key")
@@ -446,9 +455,14 @@ class AIService:
             genre=ws_data.get("genre", ""),
             background=ws_data.get("background", ""),
             rules=ws_data.get("rules", []),
-            current_arc=ws_data.get("current_arc", ""),
-            custom_instructions=ws_data.get("custom_instructions", ""),
             extra_settings=ws_data.get("extra_settings", {}),
+        )
+
+        # 构建 SessionConfig
+        sc_data = data.get("session_config", {})
+        session_config = SessionConfig(
+            current_arc=sc_data.get("current_arc", "") or ws_data.get("current_arc", ""),
+            custom_instructions=sc_data.get("custom_instructions", "") or ws_data.get("custom_instructions", ""),
         )
 
         # 构建 Characters
@@ -491,7 +505,7 @@ class AIService:
                     except Exception:
                         locations[loc_name] = LocationSetting(name=loc_name)
 
-        return session_name, world_setting, characters, locations
+        return session_name, world_setting, session_config, characters, locations
 
 
 # 全局单例

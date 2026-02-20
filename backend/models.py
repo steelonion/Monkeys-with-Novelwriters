@@ -38,14 +38,20 @@ class LocationSetting(BaseModel):
 # ────────────────────────────── 世界设定 ──────────────────────────────
 
 class WorldSetting(BaseModel):
-    """世界观/小说设定"""
+    """世界观/小说设定（纯世界构建信息）"""
     title: str = Field(default="", description="小说标题")
     genre: str = Field(default="", description="小说类型(玄幻/科幻/都市等)")
     background: str = Field(default="", description="世界观背景描述")
     rules: list[str] = Field(default_factory=list, description="世界规则(力量体系/科技水平等)")
+    extra_settings: dict[str, str] = Field(default_factory=dict, description="其他自定义设定键值对")
+
+
+# ────────────────────────────── 会话配置 ──────────────────────────────
+
+class SessionConfig(BaseModel):
+    """会话级别的配置（写作风格、剧情弧等，与世界观无关）"""
     current_arc: str = Field(default="", description="当前剧情弧")
     custom_instructions: str = Field(default="", description="用户自定义写作指令/风格要求")
-    extra_settings: dict[str, str] = Field(default_factory=dict, description="其他自定义设定键值对")
 
 
 # ────────────────────────────── 历史步骤 ──────────────────────────────
@@ -58,6 +64,7 @@ class HistoryStep(BaseModel):
     generated_text: str = Field(default="", description="AI生成的小说片段")
     characters_snapshot: dict[str, CharacterState] = Field(default_factory=dict, description="生成后角色状态快照")
     world_snapshot: WorldSetting = Field(default_factory=WorldSetting, description="生成后世界设定快照")
+    session_config_snapshot: SessionConfig = Field(default_factory=SessionConfig, description="生成后会话配置快照")
     locations_snapshot: dict[str, LocationSetting] = Field(default_factory=dict, description="生成后地点快照")
 
 
@@ -72,6 +79,7 @@ class Session(BaseModel):
 
     # 当前状态
     world_setting: WorldSetting = Field(default_factory=WorldSetting)
+    session_config: SessionConfig = Field(default_factory=SessionConfig)
     characters: dict[str, CharacterState] = Field(default_factory=dict, description="角色名 -> 角色状态")
     locations: dict[str, LocationSetting] = Field(default_factory=dict, description="地点名 -> 地点设定")
 
@@ -94,6 +102,7 @@ class GenerateResponse(BaseModel):
     story_text: str = Field(..., description="生成的小说片段")
     characters: dict[str, CharacterState] = Field(default_factory=dict)
     world_setting: WorldSetting = Field(default_factory=WorldSetting)
+    session_config: SessionConfig = Field(default_factory=SessionConfig)
     locations: dict[str, LocationSetting] = Field(default_factory=dict)
     step_id: str = ""
 
@@ -102,6 +111,7 @@ class NewSessionRequest(BaseModel):
     """创建会话请求"""
     name: str = "未命名会话"
     world_setting: Optional[WorldSetting] = None
+    session_config: Optional[SessionConfig] = None
     characters: Optional[dict[str, CharacterState]] = None
     locations: Optional[dict[str, LocationSetting]] = None
 
@@ -111,6 +121,7 @@ class UpdateSettingRequest(BaseModel):
     session_id: str
     name: Optional[str] = None
     world_setting: Optional[WorldSetting] = None
+    session_config: Optional[SessionConfig] = None
     characters: Optional[dict[str, CharacterState]] = None
     locations: Optional[dict[str, LocationSetting]] = None
 

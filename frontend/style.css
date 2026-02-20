@@ -508,6 +508,20 @@ label textarea::placeholder { color: var(--text-muted); }
   overflow-y: auto;
   flex: 1;
 }
+
+/* 表单分组标题 */
+.form-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.form-section-title:first-child {
+  margin-top: 0;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;

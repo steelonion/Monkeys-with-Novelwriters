@@ -12,7 +12,7 @@ from pathlib import Path
 from models import (
     GenerateRequest, GenerateResponse, NewSessionRequest,
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
-    WorldSetting, CharacterState, LocationSetting,
+    WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
 from ai_service import ai_service
 from session_manager import session_manager
@@ -62,6 +62,7 @@ async def create_session(req: NewSessionRequest):
     session = session_manager.create_session(
         name=req.name,
         world_setting=req.world_setting,
+        session_config=req.session_config,
         characters=req.characters,
         locations=req.locations,
     )
@@ -104,7 +105,7 @@ async def parse_text_to_session(req: ParseTextRequest):
         raise HTTPException(status_code=400, detail="请输入文本内容")
 
     try:
-        session_name, world_setting, characters, locations = await ai_service.parse_text_to_session(req.text)
+        session_name, world_setting, session_config, characters, locations = await ai_service.parse_text_to_session(req.text)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -114,6 +115,7 @@ async def parse_text_to_session(req: ParseTextRequest):
     session = session_manager.create_session(
         name=session_name,
         world_setting=world_setting,
+        session_config=session_config,
         characters=characters,
         locations=locations,
     )
@@ -130,7 +132,7 @@ async def parse_text_only(req: ParseTextRequest):
         raise HTTPException(status_code=400, detail="请输入文本内容")
 
     try:
-        session_name, world_setting, characters, locations = await ai_service.parse_text_to_session(req.text)
+        session_name, world_setting, session_config, characters, locations = await ai_service.parse_text_to_session(req.text)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -139,6 +141,7 @@ async def parse_text_only(req: ParseTextRequest):
     return {
         "session_name": session_name,
         "world_setting": world_setting.model_dump(),
+        "session_config": session_config.model_dump(),
         "characters": {k: v.model_dump() for k, v in characters.items()},
         "locations": {k: v.model_dump() for k, v in locations.items()},
     }
@@ -153,6 +156,7 @@ async def update_setting(req: UpdateSettingRequest):
         session_id=req.session_id,
         name=req.name,
         world_setting=req.world_setting,
+        session_config=req.session_config,
         characters=req.characters,
         locations=req.locations,
     )
@@ -174,7 +178,7 @@ async def generate(req: GenerateRequest):
         raise HTTPException(status_code=404, detail="会话不存在")
 
     try:
-        story_text, updated_chars, updated_world, updated_locations = await ai_service.generate(
+        story_text, updated_chars, updated_world, updated_session_config, updated_locations = await ai_service.generate(
             session=session,
             user_prompt=req.user_prompt,
             temperature=req.temperature,
@@ -190,6 +194,7 @@ async def generate(req: GenerateRequest):
         generated_text=story_text,
         characters=updated_chars,
         world_setting=updated_world,
+        session_config=updated_session_config,
         locations=updated_locations,
     )
 
@@ -197,6 +202,7 @@ async def generate(req: GenerateRequest):
         story_text=story_text,
         characters=updated_chars,
         world_setting=updated_world,
+        session_config=updated_session_config,
         locations=updated_locations,
         step_id=step.step_id,
     ).model_dump()
