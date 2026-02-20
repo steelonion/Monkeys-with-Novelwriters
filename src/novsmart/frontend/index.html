@@ -128,15 +128,15 @@
     <!-- 主线状态面板 -->
     <div id="mainlineStatePanel" class="state-tab-content active">
       <div class="workspace-section">
-        <div class="workspace-section-title">👥 角色状态</div>
+        <div class="workspace-section-title">👥 角色状态 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditCharState(null, 'mainline')" title="添加角色">+</button></div>
         <div id="mainlineStateCharacters" class="workspace-content"></div>
       </div>
       <div class="workspace-section">
-        <div class="workspace-section-title">🌍 世界设定</div>
+        <div class="workspace-section-title">🌍 世界设定 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditWorldState('mainline')" title="编辑">✏</button></div>
         <div id="mainlineStateWorld" class="workspace-content"></div>
       </div>
       <div class="workspace-section">
-        <div class="workspace-section-title">📍 地点</div>
+        <div class="workspace-section-title">📍 地点 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditLocState(null, 'mainline')" title="添加地点">+</button></div>
         <div id="mainlineStateLocations" class="workspace-content"></div>
       </div>
     </div>
@@ -144,15 +144,15 @@
     <!-- 工作区状态面板 -->
     <div id="workspaceStatePanel" class="state-tab-content">
       <div class="workspace-section">
-        <div class="workspace-section-title">👥 角色状态</div>
+        <div class="workspace-section-title">👥 角色状态 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditCharState(null, 'workspace')" title="添加角色">+</button></div>
         <div id="workspaceStateCharacters" class="workspace-content"></div>
       </div>
       <div class="workspace-section">
-        <div class="workspace-section-title">🌍 世界设定</div>
+        <div class="workspace-section-title">🌍 世界设定 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditWorldState('workspace')" title="编辑">✏</button></div>
         <div id="workspaceStateWorld" class="workspace-content"></div>
       </div>
       <div class="workspace-section">
-        <div class="workspace-section-title">📍 地点</div>
+        <div class="workspace-section-title">📍 地点 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditLocState(null, 'workspace')" title="添加地点">+</button></div>
         <div id="workspaceStateLocations" class="workspace-content"></div>
       </div>
     </div>
@@ -327,6 +327,89 @@
 
   <!-- Toast -->
   <div id="toast" class="toast"></div>
+
+  <!-- ═══════════════════ 编辑角色状态 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="editCharStateModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="editCharStateTitle">编辑角色状态</h3>
+        <button class="btn btn-icon" onclick="closeModal('editCharStateModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editCharTarget" />
+        <input type="hidden" id="editCharOrigName" />
+        <label>角色名 <input type="text" id="editCharStateName" placeholder="角色名" /></label>
+        <label>描述 <input type="text" id="editCharStateDesc" placeholder="角色基础描述" /></label>
+        <label>外貌 <input type="text" id="editCharStateAppearance" placeholder="外貌描述" /></label>
+        <label>性格 <input type="text" id="editCharStatePersonality" placeholder="性格特点" /></label>
+        <label>当前状态 <input type="text" id="editCharStateStatus" placeholder="情绪/身体状况" /></label>
+        <label>位置 <input type="text" id="editCharStateLocation" placeholder="所在位置" /></label>
+        <label>备注 <textarea id="editCharStateNotes" rows="2" placeholder="其他备注"></textarea></label>
+        <div class="form-section-title">关系</div>
+        <div id="editCharRels" class="dynamic-rows"></div>
+        <button class="btn btn-sm btn-ghost" type="button" onclick="addEditCharRelRow()">+ 添加关系</button>
+        <div class="form-section-title">随身物品（顿号或逗号分隔）</div>
+        <input type="text" id="editCharStateInventory" placeholder="如：剑、药瓶、地图" />
+        <div class="form-section-title">自定义字段</div>
+        <div id="editCharCFs" class="dynamic-rows"></div>
+        <button class="btn btn-sm btn-ghost" type="button" onclick="addEditCharCfRow()">+ 添加字段</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('editCharStateModal')">取消</button>
+        <button class="btn btn-danger" id="btnDeleteChar" onclick="deleteCharFromState()">删除角色</button>
+        <button class="btn btn-primary" onclick="saveCharState()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 编辑地点状态 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="editLocStateModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="editLocStateTitle">编辑地点</h3>
+        <button class="btn btn-icon" onclick="closeModal('editLocStateModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editLocTarget" />
+        <input type="hidden" id="editLocOrigName" />
+        <label>地点名称 <input type="text" id="editLocStateName" placeholder="地点名" /></label>
+        <label>描述 <textarea id="editLocStateDesc" rows="2" placeholder="地点描述"></textarea></label>
+        <label>父级地点 <input type="text" id="editLocStateParent" placeholder="所属的大地点" /></label>
+        <label>地点特征（每行一条） <textarea id="editLocStateFeatures" rows="2" placeholder="如：灵气浓厚"></textarea></label>
+        <label>相连地点（每行一个） <textarea id="editLocStateConnected" rows="2" placeholder="如：青云山"></textarea></label>
+        <label>备注 <textarea id="editLocStateNotes" rows="2" placeholder="其他备注"></textarea></label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('editLocStateModal')">取消</button>
+        <button class="btn btn-danger" id="btnDeleteLoc" onclick="deleteLocFromState()">删除地点</button>
+        <button class="btn btn-primary" onclick="saveLocState()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 编辑世界设定 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="editWorldStateModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="editWorldStateTitle">编辑世界设定</h3>
+        <button class="btn btn-icon" onclick="closeModal('editWorldStateModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editWorldTarget" />
+        <label>标题 <input type="text" id="editWorldTitle" /></label>
+        <label>类型 <input type="text" id="editWorldGenre" /></label>
+        <label>背景 <textarea id="editWorldBackground" rows="3"></textarea></label>
+        <label>剧情弧 <input type="text" id="editWorldArc" /></label>
+        <div class="form-section-title">附加设定</div>
+        <div id="editWorldExtras" class="dynamic-rows"></div>
+        <button class="btn btn-sm btn-ghost" type="button" onclick="addEditWorldExtraRow()">+ 添加设定</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('editWorldStateModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveWorldState()">保存</button>
+      </div>
+    </div>
+  </div>
 
   <!-- AI 任务状态栏 -->
   <div id="statusBar" class="status-bar" style="display:none">

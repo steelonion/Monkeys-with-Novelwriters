@@ -13,6 +13,7 @@ from .models import (
     GenerateRequest, GenerateResponse, NewSessionRequest,
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
     AddMainlineRequest, UpdateMainlineEntryRequest, ReorderMainlineRequest,
+    UpdateMainlineStateRequest,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
 from .ai_service import ai_service, get_active_tasks
@@ -167,6 +168,23 @@ async def update_setting(req: UpdateSettingRequest):
         world_setting=req.world_setting,
         session_config=req.session_config,
         characters=req.characters,
+        locations=req.locations,
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return session.model_dump()
+
+
+# ────────────────────────────── 主线状态快照编辑 ──────────────────────────────
+
+@app.put("/api/session/{session_id}/mainline-state")
+async def update_mainline_state(session_id: str, req: UpdateMainlineStateRequest):
+    """直接编辑主线状态快照（角色/世界设定/地点）"""
+    session = session_manager.update_mainline_state(
+        session_id=session_id,
+        characters=req.characters,
+        world_setting=req.world_setting,
+        session_config=req.session_config,
         locations=req.locations,
     )
     if not session:

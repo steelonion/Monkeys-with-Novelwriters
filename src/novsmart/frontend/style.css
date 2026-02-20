@@ -1012,6 +1012,9 @@ label textarea::placeholder { color: var(--text-muted); }
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .workspace-content {
   font-size: 0.82rem;
@@ -1037,6 +1040,21 @@ label textarea::placeholder { color: var(--text-muted); }
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.ws-edit-btn {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--transition);
+  cursor: pointer;
+}
+.ws-char-card:hover .ws-edit-btn,
+.ws-loc-card:hover .ws-edit-btn {
+  opacity: 1;
+}
+.ws-edit-btn:hover {
+  color: var(--accent);
 }
 .ws-badge-new {
   font-size: 0.65rem;
@@ -1082,6 +1100,9 @@ label textarea::placeholder { color: var(--text-muted); }
   font-weight: 600;
   font-size: 0.85rem;
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* 工作区世界设定 */
@@ -1217,4 +1238,62 @@ label textarea::placeholder { color: var(--text-muted); }
   color: var(--text-muted);
   margin-left: 2px;
   font-size: 0.7rem;
+}
+
+/* ─────────── 状态面板编辑 ─────────── */
+.ws-section-action {
+  margin-left: auto;
+  padding: 2px 8px !important;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.ws-section-action:hover {
+  color: var(--accent);
+}
+
+.dynamic-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.dynamic-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.dynamic-row input[type="text"],
+.dynamic-row textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+.dynamic-row textarea.cf-val {
+  resize: vertical;
+}
+.dynamic-remove {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  color: var(--danger);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: opacity var(--transition);
+}
+.btn-danger:hover {
+  opacity: 0.85;
 }

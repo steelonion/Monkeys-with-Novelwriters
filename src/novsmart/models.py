@@ -179,6 +179,14 @@ class UpdateMainlineEntryRequest(BaseModel):
     note: Optional[str] = None
 
 
+class UpdateMainlineStateRequest(BaseModel):
+    """更新主线状态快照"""
+    characters: Optional[dict[str, CharacterState]] = None
+    world_setting: Optional[WorldSetting] = None
+    session_config: Optional[SessionConfig] = None
+    locations: Optional[dict[str, LocationSetting]] = None
+
+
 class ReorderMainlineRequest(BaseModel):
     """重新排序主线"""
     entry_ids: list[str] = Field(..., description="按新顺序排列的条目ID列表")

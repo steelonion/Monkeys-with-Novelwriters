@@ -770,9 +770,9 @@ function renderWorkspace(session) {
   const mainlineLocs = session.mainline_locations || {};
 
   // 主线状态面板 —— 展示服务端维护的主线快照
-  renderStatePanelCharacters($('#mainlineStateCharacters'), mainlineChars, null);
-  renderStatePanelWorld($('#mainlineStateWorld'), mainlineWorld, null);
-  renderStatePanelLocations($('#mainlineStateLocations'), mainlineLocs, null);
+  renderStatePanelCharacters($('#mainlineStateCharacters'), mainlineChars, null, 'mainline');
+  renderStatePanelWorld($('#mainlineStateWorld'), mainlineWorld, null, 'mainline');
+  renderStatePanelLocations($('#mainlineStateLocations'), mainlineLocs, null, 'mainline');
 
   // 判断工作区与主线是否有差异
   const hasDiff = JSON.stringify(currentChars) !== JSON.stringify(mainlineChars)
@@ -780,15 +780,15 @@ function renderWorkspace(session) {
     || JSON.stringify(currentLocs) !== JSON.stringify(mainlineLocs);
 
   // 工作区状态面板 —— 展示当前状态；有差异时与主线快照对比高亮
-  renderStatePanelCharacters($('#workspaceStateCharacters'), currentChars, hasDiff ? mainlineChars : null);
-  renderStatePanelWorld($('#workspaceStateWorld'), currentWorld, hasDiff ? mainlineWorld : null);
-  renderStatePanelLocations($('#workspaceStateLocations'), currentLocs, hasDiff ? mainlineLocs : null);
+  renderStatePanelCharacters($('#workspaceStateCharacters'), currentChars, hasDiff ? mainlineChars : null, 'workspace');
+  renderStatePanelWorld($('#workspaceStateWorld'), currentWorld, hasDiff ? mainlineWorld : null, 'workspace');
+  renderStatePanelLocations($('#workspaceStateLocations'), currentLocs, hasDiff ? mainlineLocs : null, 'workspace');
 }
 
 /**
- * 通用角色渲染：current = 要展示的数据，baseline = 对比基准（用于高亮差异），null 表示不做差异对比
+ * 通用角色渲染：current = 要展示的数据，baseline = 对比基准（用于高亮差异），null 表示不做差异对比，target = 'workspace'|'mainline'
  */
-function renderStatePanelCharacters(container, current, baseline) {
+function renderStatePanelCharacters(container, current, baseline, target) {
   const allNames = new Set([...Object.keys(current || {})]);
   if (baseline) {
     for (const n of Object.keys(baseline)) allNames.add(n);
@@ -810,8 +810,8 @@ function renderStatePanelCharacters(container, current, baseline) {
     const cardClass = (isNew || isChanged) ? 'ws-char-card ws-changed' : 'ws-char-card';
     const badge = isNew ? '<span class="ws-badge-new">新</span>' : (isChanged ? '<span class="ws-badge-updated">已更新</span>' : '');
 
-    html += `<div class="${cardClass}">`;
-    html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}</div>`;
+    html += `<div class="${cardClass}" style="cursor:pointer" data-char-name="${escHtml(charData.name)}" data-target="${target}" onclick="openEditCharState(this.dataset.charName, this.dataset.target)">`;
+    html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}<span class="ws-edit-btn" title="编辑">✏</span></div>`;
 
     const fields = [
       ['状态', 'status'], ['位置', 'location'], ['描述', 'description'], ['外貌', 'appearance']
@@ -854,7 +854,7 @@ function _isCharChanged(cur, ml) {
   return false;
 }
 
-function renderStatePanelWorld(container, current, baseline) {
+function renderStatePanelWorld(container, current, baseline, target) {
   if (!current) {
     container.innerHTML = '<p class="empty-hint">暂无世界设定</p>';
     return;
@@ -889,7 +889,7 @@ function renderStatePanelWorld(container, current, baseline) {
   container.innerHTML = html || '<p class="empty-hint">暂无世界设定</p>';
 }
 
-function renderStatePanelLocations(container, current, baseline) {
+function renderStatePanelLocations(container, current, baseline, target) {
   const allNames = new Set([...Object.keys(current || {})]);
   if (baseline) {
     for (const n of Object.keys(baseline)) allNames.add(n);
@@ -909,8 +909,8 @@ function renderStatePanelLocations(container, current, baseline) {
     const locData = cur || bl;
 
     const cardClass = (isNew || isChanged) ? 'ws-loc-card ws-changed' : 'ws-loc-card';
-    html += `<div class="${cardClass}">`;
-    html += `<div class="ws-loc-name">📍 ${escHtml(locData.name)}`;
+    html += `<div class="${cardClass}" style="cursor:pointer" data-loc-name="${escHtml(locData.name)}" data-target="${target}" onclick="openEditLocState(this.dataset.locName, this.dataset.target)">`;
+    html += `<div class="ws-loc-name">📍 ${escHtml(locData.name)}<span class="ws-edit-btn" title="编辑">✏</span>`;
     if (isNew) html += ' <span class="ws-badge-new">新</span>';
     else if (isChanged) html += ' <span class="ws-badge-updated">已更新</span>';
     html += '</div>';
@@ -943,6 +943,395 @@ async function clearHistory() {
     renderSession(session);
     showToast('对话历史已清理');
   } catch (e) { showToast('清理失败: ' + e.message); }
+}
+
+// ─────────── 状态面板手动编辑 ───────────
+
+// --- 角色编辑 ---
+
+function openEditCharState(charName, target) {
+  if (!currentSessionId || !_currentSession) { showToast('请先选择一个会话'); return; }
+
+  const chars = target === 'mainline'
+    ? (_currentSession.mainline_characters || {})
+    : (_currentSession.characters || {});
+  const char = charName ? chars[charName] : null;
+  const isNew = !char;
+
+  $('#editCharTarget').value = target;
+  $('#editCharOrigName').value = charName || '';
+  $('#editCharStateName').value = char ? char.name : '';
+  $('#editCharStateDesc').value = char ? (char.description || '') : '';
+  $('#editCharStateAppearance').value = char ? (char.appearance || '') : '';
+  $('#editCharStatePersonality').value = char ? (char.personality || '') : '';
+  $('#editCharStateStatus').value = char ? (char.status || '') : '';
+  $('#editCharStateLocation').value = char ? (char.location || '') : '';
+  $('#editCharStateNotes').value = char ? (char.notes || '') : '';
+
+  // 关系
+  const relsContainer = $('#editCharRels');
+  relsContainer.innerHTML = '';
+  if (char && char.relationships) {
+    for (const [k, v] of Object.entries(char.relationships)) {
+      addEditCharRelRow(k, v);
+    }
+  }
+
+  // 随身物品
+  $('#editCharStateInventory').value = char && char.inventory ? char.inventory.join('、') : '';
+
+  // 自定义字段
+  const cfsContainer = $('#editCharCFs');
+  cfsContainer.innerHTML = '';
+  if (char && char.custom_fields) {
+    for (const [k, v] of Object.entries(char.custom_fields)) {
+      const valStr = typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
+      addEditCharCfRow(k, valStr);
+    }
+  }
+
+  // 隐藏/显示删除按钮
+  $('#btnDeleteChar').style.display = isNew ? 'none' : '';
+
+  const tabLabel = target === 'mainline' ? '主线' : '工作区';
+  $('#editCharStateTitle').textContent = isNew
+    ? `添加角色（${tabLabel}）`
+    : `编辑角色 · ${charName}（${tabLabel}）`;
+  openModal('editCharStateModal');
+}
+
+function addEditCharRelRow(name, desc) {
+  name = name || '';
+  desc = desc || '';
+  const container = $('#editCharRels');
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.innerHTML = `
+    <input type="text" class="rel-name" placeholder="角色名" value="${escHtml(name)}" />
+    <input type="text" class="rel-desc" placeholder="关系描述" value="${escHtml(desc)}" />
+    <button class="btn btn-sm btn-ghost dynamic-remove" type="button" onclick="this.closest('.dynamic-row').remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function addEditCharCfRow(key, val) {
+  key = key || '';
+  val = val || '';
+  const container = $('#editCharCFs');
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.innerHTML = `
+    <input type="text" class="cf-key" placeholder="字段名" value="${escHtml(key)}" />
+    <textarea class="cf-val" rows="1" placeholder="值">${escHtml(val)}</textarea>
+    <button class="btn btn-sm btn-ghost dynamic-remove" type="button" onclick="this.closest('.dynamic-row').remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function _getEditCharRelationships() {
+  const rels = {};
+  document.querySelectorAll('#editCharRels .dynamic-row').forEach(row => {
+    const name = row.querySelector('.rel-name').value.trim();
+    const desc = row.querySelector('.rel-desc').value.trim();
+    if (name) rels[name] = desc;
+  });
+  return rels;
+}
+
+function _getEditCharCustomFields() {
+  const cfs = {};
+  document.querySelectorAll('#editCharCFs .dynamic-row').forEach(row => {
+    const key = row.querySelector('.cf-key').value.trim();
+    const val = row.querySelector('.cf-val').value.trim();
+    if (!key) return;
+    try { cfs[key] = JSON.parse(val); } catch { cfs[key] = val; }
+  });
+  return cfs;
+}
+
+async function saveCharState() {
+  const target = $('#editCharTarget').value;
+  const origName = $('#editCharOrigName').value;
+  const newName = $('#editCharStateName').value.trim();
+  if (!newName) { showToast('请输入角色名'); return; }
+
+  const charObj = {
+    name: newName,
+    description: $('#editCharStateDesc').value.trim(),
+    appearance: $('#editCharStateAppearance').value.trim(),
+    personality: $('#editCharStatePersonality').value.trim(),
+    status: $('#editCharStateStatus').value.trim(),
+    location: $('#editCharStateLocation').value.trim(),
+    notes: $('#editCharStateNotes').value.trim(),
+    relationships: _getEditCharRelationships(),
+    inventory: $('#editCharStateInventory').value.trim().split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+    custom_fields: _getEditCharCustomFields(),
+  };
+
+  try {
+    let chars;
+    if (target === 'mainline') {
+      chars = { ...(_currentSession.mainline_characters || {}) };
+    } else {
+      chars = { ...(_currentSession.characters || {}) };
+    }
+    if (origName && origName !== newName) delete chars[origName];
+    chars[newName] = charObj;
+
+    if (target === 'mainline') {
+      await apiJson(`/api/session/${currentSessionId}/mainline-state`, {
+        method: 'PUT', body: JSON.stringify({ characters: chars }),
+      });
+    } else {
+      await apiJson('/api/session/setting', {
+        method: 'PUT', body: JSON.stringify({ session_id: currentSessionId, characters: chars }),
+      });
+    }
+
+    const updated = await apiJson(`/api/session/${currentSessionId}`);
+    _currentSession = updated;
+    renderWorkspace(updated);
+    closeModal('editCharStateModal');
+    showToast(`角色「${newName}」已保存`);
+  } catch (e) { showToast('保存失败: ' + e.message); }
+}
+
+async function deleteCharFromState() {
+  const target = $('#editCharTarget').value;
+  const origName = $('#editCharOrigName').value;
+  if (!origName) return;
+  if (!confirm(`确定删除角色「${origName}」？`)) return;
+
+  try {
+    let chars;
+    if (target === 'mainline') {
+      chars = { ...(_currentSession.mainline_characters || {}) };
+    } else {
+      chars = { ...(_currentSession.characters || {}) };
+    }
+    delete chars[origName];
+
+    if (target === 'mainline') {
+      await apiJson(`/api/session/${currentSessionId}/mainline-state`, {
+        method: 'PUT', body: JSON.stringify({ characters: chars }),
+      });
+    } else {
+      await apiJson('/api/session/setting', {
+        method: 'PUT', body: JSON.stringify({ session_id: currentSessionId, characters: chars }),
+      });
+    }
+
+    const updated = await apiJson(`/api/session/${currentSessionId}`);
+    _currentSession = updated;
+    renderWorkspace(updated);
+    closeModal('editCharStateModal');
+    showToast(`角色「${origName}」已删除`);
+  } catch (e) { showToast('删除失败: ' + e.message); }
+}
+
+// --- 地点编辑 ---
+
+function openEditLocState(locName, target) {
+  if (!currentSessionId || !_currentSession) { showToast('请先选择一个会话'); return; }
+
+  const locs = target === 'mainline'
+    ? (_currentSession.mainline_locations || {})
+    : (_currentSession.locations || {});
+  const loc = locName ? locs[locName] : null;
+  const isNew = !loc;
+
+  $('#editLocTarget').value = target;
+  $('#editLocOrigName').value = locName || '';
+  $('#editLocStateName').value = loc ? loc.name : '';
+  $('#editLocStateDesc').value = loc ? (loc.description || '') : '';
+  $('#editLocStateParent').value = loc ? (loc.parent || '') : '';
+  $('#editLocStateFeatures').value = loc && loc.features ? loc.features.join('\n') : '';
+  $('#editLocStateConnected').value = loc && loc.connected_to ? loc.connected_to.join('\n') : '';
+  $('#editLocStateNotes').value = loc ? (loc.notes || '') : '';
+
+  $('#btnDeleteLoc').style.display = isNew ? 'none' : '';
+
+  const tabLabel = target === 'mainline' ? '主线' : '工作区';
+  $('#editLocStateTitle').textContent = isNew
+    ? `添加地点（${tabLabel}）`
+    : `编辑地点 · ${locName}（${tabLabel}）`;
+  openModal('editLocStateModal');
+}
+
+async function saveLocState() {
+  const target = $('#editLocTarget').value;
+  const origName = $('#editLocOrigName').value;
+  const newName = $('#editLocStateName').value.trim();
+  if (!newName) { showToast('请输入地点名称'); return; }
+
+  const locObj = {
+    name: newName,
+    description: $('#editLocStateDesc').value.trim(),
+    parent: $('#editLocStateParent').value.trim(),
+    features: $('#editLocStateFeatures').value.trim().split('\n').filter(Boolean),
+    connected_to: $('#editLocStateConnected').value.trim().split('\n').filter(Boolean),
+    notes: $('#editLocStateNotes').value.trim(),
+  };
+
+  try {
+    let locs;
+    if (target === 'mainline') {
+      locs = { ...(_currentSession.mainline_locations || {}) };
+    } else {
+      locs = { ...(_currentSession.locations || {}) };
+    }
+    if (origName && origName !== newName) delete locs[origName];
+    locs[newName] = locObj;
+
+    if (target === 'mainline') {
+      await apiJson(`/api/session/${currentSessionId}/mainline-state`, {
+        method: 'PUT', body: JSON.stringify({ locations: locs }),
+      });
+    } else {
+      await apiJson('/api/session/setting', {
+        method: 'PUT', body: JSON.stringify({ session_id: currentSessionId, locations: locs }),
+      });
+    }
+
+    const updated = await apiJson(`/api/session/${currentSessionId}`);
+    _currentSession = updated;
+    renderWorkspace(updated);
+    closeModal('editLocStateModal');
+    showToast(`地点「${newName}」已保存`);
+  } catch (e) { showToast('保存失败: ' + e.message); }
+}
+
+async function deleteLocFromState() {
+  const target = $('#editLocTarget').value;
+  const origName = $('#editLocOrigName').value;
+  if (!origName) return;
+  if (!confirm(`确定删除地点「${origName}」？`)) return;
+
+  try {
+    let locs;
+    if (target === 'mainline') {
+      locs = { ...(_currentSession.mainline_locations || {}) };
+    } else {
+      locs = { ...(_currentSession.locations || {}) };
+    }
+    delete locs[origName];
+
+    if (target === 'mainline') {
+      await apiJson(`/api/session/${currentSessionId}/mainline-state`, {
+        method: 'PUT', body: JSON.stringify({ locations: locs }),
+      });
+    } else {
+      await apiJson('/api/session/setting', {
+        method: 'PUT', body: JSON.stringify({ session_id: currentSessionId, locations: locs }),
+      });
+    }
+
+    const updated = await apiJson(`/api/session/${currentSessionId}`);
+    _currentSession = updated;
+    renderWorkspace(updated);
+    closeModal('editLocStateModal');
+    showToast(`地点「${origName}」已删除`);
+  } catch (e) { showToast('删除失败: ' + e.message); }
+}
+
+// --- 世界设定编辑 ---
+
+function openEditWorldState(target) {
+  if (!currentSessionId || !_currentSession) { showToast('请先选择一个会话'); return; }
+
+  let ws, sc;
+  if (target === 'mainline') {
+    ws = _currentSession.mainline_world_setting || {};
+    sc = _currentSession.mainline_session_config || {};
+  } else {
+    ws = _currentSession.world_setting || {};
+    sc = _currentSession.session_config || {};
+  }
+
+  $('#editWorldTarget').value = target;
+  $('#editWorldTitle').value = ws.title || '';
+  $('#editWorldGenre').value = ws.genre || '';
+  $('#editWorldBackground').value = ws.background || '';
+  $('#editWorldArc').value = sc.current_arc || '';
+
+  // 附加设定
+  const container = $('#editWorldExtras');
+  container.innerHTML = '';
+  if (ws.extra_settings) {
+    for (const [k, v] of Object.entries(ws.extra_settings)) {
+      addEditWorldExtraRow(k, v);
+    }
+  }
+
+  const tabLabel = target === 'mainline' ? '主线' : '工作区';
+  $('#editWorldStateTitle').textContent = `编辑世界设定（${tabLabel}）`;
+  openModal('editWorldStateModal');
+}
+
+function addEditWorldExtraRow(key, val) {
+  key = key || '';
+  val = val || '';
+  const container = $('#editWorldExtras');
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.innerHTML = `
+    <input type="text" class="extra-key" placeholder="设定名" value="${escHtml(key)}" />
+    <input type="text" class="extra-val" placeholder="设定值" value="${escHtml(val)}" />
+    <button class="btn btn-sm btn-ghost dynamic-remove" type="button" onclick="this.closest('.dynamic-row').remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+async function saveWorldState() {
+  const target = $('#editWorldTarget').value;
+
+  const wsObj = {
+    title: $('#editWorldTitle').value.trim(),
+    genre: $('#editWorldGenre').value.trim(),
+    background: $('#editWorldBackground').value.trim(),
+    rules: target === 'mainline'
+      ? (_currentSession.mainline_world_setting || {}).rules || []
+      : (_currentSession.world_setting || {}).rules || [],
+    extra_settings: {},
+  };
+  document.querySelectorAll('#editWorldExtras .dynamic-row').forEach(row => {
+    const k = row.querySelector('.extra-key').value.trim();
+    const v = row.querySelector('.extra-val').value.trim();
+    if (k) wsObj.extra_settings[k] = v;
+  });
+
+  const scObj = {
+    current_arc: $('#editWorldArc').value.trim(),
+    custom_instructions: target === 'mainline'
+      ? (_currentSession.mainline_session_config || {}).custom_instructions || ''
+      : (_currentSession.session_config || {}).custom_instructions || '',
+    custom_field_defs: target === 'mainline'
+      ? (_currentSession.mainline_session_config || {}).custom_field_defs || []
+      : (_currentSession.session_config || {}).custom_field_defs || [],
+  };
+
+  try {
+    if (target === 'mainline') {
+      await apiJson(`/api/session/${currentSessionId}/mainline-state`, {
+        method: 'PUT', body: JSON.stringify({ world_setting: wsObj, session_config: scObj }),
+      });
+    } else {
+      await apiJson('/api/session/setting', {
+        method: 'PUT', body: JSON.stringify({ session_id: currentSessionId, world_setting: wsObj, session_config: scObj }),
+      });
+    }
+
+    const updated = await apiJson(`/api/session/${currentSessionId}`);
+    _currentSession = updated;
+    renderWorkspace(updated);
+    // 如果是工作区编辑，也刷新侧边栏配置
+    if (target === 'workspace') {
+      const sidebarConfig = updated.mainline_session_config || updated.session_config;
+      renderSessionConfig(sidebarConfig);
+    }
+    closeModal('editWorldStateModal');
+    showToast('世界设定已保存');
+  } catch (e) { showToast('保存失败: ' + e.message); }
 }
 
 // ─────────── 导出主线 ───────────

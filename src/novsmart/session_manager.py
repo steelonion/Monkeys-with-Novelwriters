@@ -211,6 +211,33 @@ class SessionManager:
         self._save_to_disk(session)
         return session
 
+    # ─────────────── 更新主线状态快照 ───────────────
+
+    def update_mainline_state(
+        self,
+        session_id: str,
+        characters: dict[str, CharacterState] | None = None,
+        world_setting: WorldSetting | None = None,
+        session_config: SessionConfig | None = None,
+        locations: dict[str, LocationSetting] | None = None,
+    ) -> Session | None:
+        session = self.get_session(session_id)
+        if not session:
+            return None
+
+        if characters is not None:
+            session.mainline_characters = characters
+        if world_setting is not None:
+            session.mainline_world_setting = world_setting
+        if session_config is not None:
+            session.mainline_session_config = session_config
+        if locations is not None:
+            session.mainline_locations = locations
+
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return session
+
     # ─────────────── 列出会话 ───────────────
 
     def list_sessions(self) -> list[dict]:
