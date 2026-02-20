@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NovSmart - AI 小说写作框架</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- ═══════════════════ 侧边栏 ═══════════════════ -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <h1 class="logo">Nov<span>Smart</span></h1>
+      <p class="tagline">AI 小说写作框架</p>
+    </div>
+
+    <!-- API 配置 -->
+    <details class="panel" id="configPanel">
+      <summary><i class="icon">⚙</i> API 配置</summary>
+      <div class="panel-body">
+        <label>API Key
+          <input type="password" id="apiKey" placeholder="sk-..." />
+        </label>
+        <label>Base URL
+          <input type="text" id="baseUrl" value="https://api.openai.com/v1" />
+        </label>
+        <label>模型
+          <input type="text" id="model" value="gpt-4o" />
+        </label>
+        <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+        <div id="configStatus" class="status-badge"></div>
+      </div>
+    </details>
+
+    <!-- 会话列表 -->
+    <div class="panel">
+      <div class="panel-title">
+        <i class="icon">📚</i> 会话列表
+        <button class="btn btn-sm btn-ghost" onclick="openNewSessionModal()">+ 新建</button>
+      </div>
+      <div id="sessionList" class="session-list">
+        <p class="empty-hint">暂无会话，点击新建开始</p>
+      </div>
+    </div>
+
+    <!-- 角色面板 -->
+    <div class="panel" id="charactersPanel" style="display:none">
+      <div class="panel-title">
+        <i class="icon">👥</i> 角色状态
+        <button class="btn btn-sm btn-ghost" onclick="openAddCharacterModal()">+ 添加</button>
+      </div>
+      <div id="charactersList" class="characters-list"></div>
+    </div>
+
+    <!-- 世界设定面板 -->
+    <div class="panel" id="worldPanel" style="display:none">
+      <div class="panel-title"><i class="icon">🌍</i> 世界设定</div>
+      <div id="worldInfo" class="world-info"></div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════ 主内容区 ═══════════════════ -->
+  <main id="mainContent" class="main-content">
+    <!-- 顶部栏 -->
+    <header class="topbar">
+      <button class="btn btn-icon" onclick="toggleSidebar()" title="切换侧边栏">☰</button>
+      <h2 id="sessionTitle" class="session-name">请选择或创建一个会话</h2>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" id="btnUndo" onclick="undoStep()" disabled title="撤销">↩ 撤销</button>
+        <button class="btn btn-ghost" id="btnExport" onclick="exportNovel()" disabled title="导出">📥 导出</button>
+      </div>
+    </header>
+
+    <!-- 故事阅读区 -->
+    <section id="storyArea" class="story-area">
+      <div class="story-welcome">
+        <div class="welcome-icon">✨</div>
+        <h2>欢迎使用 NovSmart</h2>
+        <p>创建一个新会话，设定你的世界观和角色，然后开始你的创作之旅。</p>
+      </div>
+    </section>
+
+    <!-- 输入区 -->
+    <section class="input-area" id="inputArea" style="display:none">
+      <div class="input-wrapper">
+        <textarea id="userPrompt" rows="3" placeholder="描述接下来的剧情走向，例如：主角进入了神秘的密林深处..."></textarea>
+        <div class="input-controls">
+          <div class="param-group">
+            <label class="param">🌡 温度 <input type="range" id="temperature" min="0" max="2" step="0.05" value="0.85" oninput="this.nextElementSibling.textContent=this.value" /><span>0.85</span></label>
+            <label class="param">📝 长度 <input type="range" id="maxTokens" min="100" max="8000" step="100" value="2000" oninput="this.nextElementSibling.textContent=this.value" /><span>2000</span></label>
+          </div>
+          <button class="btn btn-primary btn-generate" id="btnGenerate" onclick="generate()">
+            <span class="btn-text">✦ 生成</span>
+            <span class="btn-loading" style="display:none">生成中...</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════════════════ 新建会话 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="newSessionModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>创建新会话</h3>
+        <button class="btn btn-icon" onclick="closeModal('newSessionModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>会话名称 <input type="text" id="newSessionName" placeholder="我的玄幻小说" /></label>
+        <label>小说标题 <input type="text" id="newTitle" placeholder="标题" /></label>
+        <label>类型 <input type="text" id="newGenre" placeholder="玄幻 / 科幻 / 都市 / 言情..." /></label>
+        <label>世界观背景
+          <textarea id="newBackground" rows="3" placeholder="描述你的小说世界..."></textarea>
+        </label>
+        <label>世界规则（每行一条）
+          <textarea id="newRules" rows="3" placeholder="每行一条规则，如：\n修仙等级: 练气→筑基→金丹→元婴\n灵气浓度决定修炼速度"></textarea>
+        </label>
+        <label>剧情弧 <input type="text" id="newArc" placeholder="当前主线剧情" /></label>
+        <label>写作风格要求
+          <textarea id="newInstructions" rows="2" placeholder="如：文风偏古典，多用四字短语，节奏紧凑"></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('newSessionModal')">取消</button>
+        <button class="btn btn-primary" onclick="createSession()">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 添加角色 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="addCharacterModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>添加角色</h3>
+        <button class="btn btn-icon" onclick="closeModal('addCharacterModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>角色名 <input type="text" id="charName" placeholder="角色名" /></label>
+        <label>描述 <input type="text" id="charDesc" placeholder="外貌描述" /></label>
+        <label>性格 <input type="text" id="charPersonality" placeholder="性格特点" /></label>
+        <label>当前状态 <input type="text" id="charStatus" placeholder="情绪/身体状况" /></label>
+        <label>位置 <input type="text" id="charLocation" placeholder="所在位置" /></label>
+        <label>备注
+          <textarea id="charNotes" rows="2" placeholder="其他备注"></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('addCharacterModal')">取消</button>
+        <button class="btn btn-primary" onclick="addCharacter()">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 角色详情 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="charDetailModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="charDetailTitle">角色详情</h3>
+        <button class="btn btn-icon" onclick="closeModal('charDetailModal')">✕</button>
+      </div>
+      <div class="modal-body" id="charDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

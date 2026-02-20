@@ -29,6 +29,8 @@ app.add_middleware(
 
 # 静态文件 - 前端
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 # ────────────────────────────── API 配置 ──────────────────────────────
