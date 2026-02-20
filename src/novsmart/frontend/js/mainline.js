@@ -1,5 +1,5 @@
 /**
- * NovSmart - 文章主线管理
+ * Monkeys-with-Novelwriters - 文章主线管理
  */
 
 async function exportMainline() {

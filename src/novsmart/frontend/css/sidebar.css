@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   NovSmart - 侧边栏
+   Monkeys-with-Novelwriters - 侧边栏
    ═══════════════════════════════════════════════════════ */
 
 .sidebar {
@@ -21,7 +21,7 @@
   border-bottom: 1px solid var(--border);
 }
 .logo {
-  font-size: 1.6rem;
+  font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.5px;
 }

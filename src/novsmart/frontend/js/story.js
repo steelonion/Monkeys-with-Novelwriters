@@ -1,5 +1,5 @@
 /**
- * NovSmart - 故事渲染与生成
+ * Monkeys-with-Novelwriters - 故事渲染与生成
  */
 
 function renderStory(history) {

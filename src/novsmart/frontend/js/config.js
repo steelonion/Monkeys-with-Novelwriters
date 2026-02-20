@@ -1,5 +1,5 @@
 /**
- * NovSmart - API 配置管理
+ * Monkeys-with-Novelwriters - API 配置管理
  */
 
 async function loadConfig() {

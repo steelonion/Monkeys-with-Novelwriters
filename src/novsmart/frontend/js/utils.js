@@ -1,5 +1,5 @@
 /**
- * NovSmart - 工具函数、全局状态、API 辅助、主题
+ * Monkeys-with-Novelwriters - 工具函数、全局状态、API 辅助、主题
  */
 
 const API = '';  // 同源，留空即可

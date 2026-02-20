@@ -1,5 +1,5 @@
 /**
- * NovSmart - 右侧状态面板（主线 + 工作区双面板渲染与世界设定编辑）
+ * Monkeys-with-Novelwriters - 右侧状态面板（主线 + 工作区双面板渲染与世界设定编辑）
  */
 
 function switchStateTab(tab) {

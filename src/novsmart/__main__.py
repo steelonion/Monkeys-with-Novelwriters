@@ -1,5 +1,5 @@
 """
-NovSmart 启动入口 - 通过 python -m novsmart 启动
+Monkeys-with-Novelwriters 启动入口 - 通过 python -m novsmart 启动
 """
 import argparse
 import os
@@ -8,7 +8,7 @@ import uvicorn
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NovSmart - AI小说写作框架")
+    parser = argparse.ArgumentParser(description="Monkeys-with-Novelwriters - AI小说写作框架")
     parser.add_argument("--debug", action="store_true", help="启用调试模式，在 log/ 目录记录原始请求和返回")
     parser.add_argument("--host", default="0.0.0.0", help="监听地址 (默认 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8000, help="监听端口 (默认 8000)")

@@ -19,7 +19,7 @@ from .models import (
 from .ai_service import ai_service, get_active_tasks
 from .session_manager import session_manager
 
-app = FastAPI(title="NovSmart - AI小说写作框架", version="1.0.0")
+app = FastAPI(title="Monkeys-with-Novelwriters - AI小说写作框架", version="1.0.0")
 
 # CORS
 app.add_middleware(

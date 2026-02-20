@@ -1,5 +1,5 @@
 /**
- * NovSmart - 地点管理（详情、添加、编辑、删除）
+ * Monkeys-with-Novelwriters - 地点管理（详情、添加、编辑、删除）
  */
 
 function showLocDetail(loc) {

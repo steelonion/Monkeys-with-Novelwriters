@@ -1,5 +1,5 @@
 /**
- * NovSmart - 初始化、事件监听
+ * Monkeys-with-Novelwriters - 初始化、事件监听
  */
 
 // 快捷键：Ctrl/Cmd+Enter 生成
