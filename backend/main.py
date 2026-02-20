@@ -11,7 +11,8 @@ from pathlib import Path
 
 from models import (
     GenerateRequest, GenerateResponse, NewSessionRequest,
-    UpdateSettingRequest, APIConfigRequest, WorldSetting, CharacterState,
+    UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
+    WorldSetting, CharacterState,
 )
 from ai_service import ai_service
 from session_manager import session_manager
@@ -88,6 +89,33 @@ async def delete_session(session_id: str):
     if not ok:
         raise HTTPException(status_code=404, detail="会话不存在")
     return {"status": "ok"}
+
+
+# ────────────────────────────── 文本解析创建会话 ──────────────────────────────
+
+@app.post("/api/session/parse-text")
+async def parse_text_to_session(req: ParseTextRequest):
+    """从自由文本解析并创建会话"""
+    if not ai_service.is_configured:
+        raise HTTPException(status_code=400, detail="请先配置 API Key")
+
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="请输入文本内容")
+
+    try:
+        session_name, world_setting, characters = await ai_service.parse_text_to_session(req.text)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析失败：{str(e)}")
+
+    # 直接创建会话
+    session = session_manager.create_session(
+        name=session_name,
+        world_setting=world_setting,
+        characters=characters,
+    )
+    return session.model_dump()
 
 
 # ────────────────────────────── 设定管理 ──────────────────────────────

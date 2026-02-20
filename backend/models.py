@@ -97,6 +97,11 @@ class UpdateSettingRequest(BaseModel):
     characters: Optional[dict[str, CharacterState]] = None
 
 
+class ParseTextRequest(BaseModel):
+    """从文本解析会话设定请求"""
+    text: str = Field(..., description="用户提供的自由文本，包含小说设定信息")
+
+
 class APIConfigRequest(BaseModel):
     """API配置"""
     api_key: str

@@ -592,6 +592,35 @@ label textarea::placeholder { color: var(--text-muted); }
   border-color: var(--border-light);
 }
 
+/* ─────────── 标签切换器 ─────────── */
+.tab-switcher {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: 16px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 4px var(--accent-glow);
+}
+
 /* ─────────── 响应式 ─────────── */
 @media (max-width: 768px) {
   .sidebar {

@@ -103,29 +103,50 @@
 
   <!-- ═══════════════════ 新建会话 Modal ═══════════════════ -->
   <div class="modal-overlay" id="newSessionModal">
-    <div class="modal">
+    <div class="modal modal-wide">
       <div class="modal-header">
         <h3>创建新会话</h3>
         <button class="btn btn-icon" onclick="closeModal('newSessionModal')">✕</button>
       </div>
       <div class="modal-body">
-        <label>会话名称 <input type="text" id="newSessionName" placeholder="我的玄幻小说" /></label>
-        <label>小说标题 <input type="text" id="newTitle" placeholder="标题" /></label>
-        <label>类型 <input type="text" id="newGenre" placeholder="玄幻 / 科幻 / 都市 / 言情..." /></label>
-        <label>世界观背景
-          <textarea id="newBackground" rows="3" placeholder="描述你的小说世界..."></textarea>
-        </label>
-        <label>世界规则（每行一条）
-          <textarea id="newRules" rows="3" placeholder="每行一条规则，如：\n修仙等级: 练气→筑基→金丹→元婴\n灵气浓度决定修炼速度"></textarea>
-        </label>
-        <label>剧情弧 <input type="text" id="newArc" placeholder="当前主线剧情" /></label>
-        <label>写作风格要求
-          <textarea id="newInstructions" rows="2" placeholder="如：文风偏古典，多用四字短语，节奏紧凑"></textarea>
-        </label>
+        <!-- 模式切换标签 -->
+        <div class="tab-switcher">
+          <button class="tab-btn active" onclick="switchCreateMode('manual')" id="tabManual">手动填写</button>
+          <button class="tab-btn" onclick="switchCreateMode('smart')" id="tabSmart">✦ 智能解析</button>
+        </div>
+
+        <!-- 智能解析模式 -->
+        <div id="smartCreatePanel" style="display:none">
+          <label>粘贴你的小说设定文本
+            <textarea id="smartText" rows="10" placeholder="在此粘贴包含世界观、角色设定、剧情等内容的文本，AI 将自动为你提取并填写所有设定字段...
+
+示例：
+这是一部玄幻修仙小说《九天剑道》。世界以灵气为根基，修炼体系分为练气、筑基、金丹、元婴、化神五个大境界。主角叶凡，17岁少年，天资聪颖但灵根为废体，性格坚韧不拔。他身处天玄大陆的青云宗，随身携带一枚神秘玉佩..."></textarea>
+          </label>
+          <div id="smartParseStatus" class="status-badge"></div>
+        </div>
+
+        <!-- 手动填写模式 -->
+        <div id="manualCreatePanel">
+          <label>会话名称 <input type="text" id="newSessionName" placeholder="我的玄幻小说" /></label>
+          <label>小说标题 <input type="text" id="newTitle" placeholder="标题" /></label>
+          <label>类型 <input type="text" id="newGenre" placeholder="玄幻 / 科幻 / 都市 / 言情..." /></label>
+          <label>世界观背景
+            <textarea id="newBackground" rows="3" placeholder="描述你的小说世界..."></textarea>
+          </label>
+          <label>世界规则（每行一条）
+            <textarea id="newRules" rows="3" placeholder="每行一条规则，如：\n修仙等级: 练气→筑基→金丹→元婴\n灵气浓度决定修炼速度"></textarea>
+          </label>
+          <label>剧情弧 <input type="text" id="newArc" placeholder="当前主线剧情" /></label>
+          <label>写作风格要求
+            <textarea id="newInstructions" rows="2" placeholder="如：文风偏古典，多用四字短语，节奏紧凑"></textarea>
+          </label>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal('newSessionModal')">取消</button>
-        <button class="btn btn-primary" onclick="createSession()">创建</button>
+        <button class="btn btn-primary" id="btnSmartParse" style="display:none" onclick="smartParseAndCreate()">✦ 解析并创建</button>
+        <button class="btn btn-primary" id="btnManualCreate" onclick="createSession()">创建</button>
       </div>
     </div>
   </div>

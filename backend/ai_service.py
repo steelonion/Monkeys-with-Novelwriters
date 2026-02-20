@@ -72,6 +72,47 @@ SYSTEM_PROMPT_TEMPLATE = """\
 """
 
 
+PARSE_TEXT_PROMPT = """\
+你是一个文本解析助手。用户会提供一段关于小说设定的自由文本，其中可能包含世界观、角色设定、剧情简介、写作风格等信息。
+
+你需要从中提取结构化信息，输出一个严格合法的 JSON 对象。格式如下：
+
+```json
+{{
+  "session_name": "根据内容总结的会话名称",
+  "world_setting": {{
+    "title": "小说标题（如果文本中有提及）",
+    "genre": "小说类型（如玄幻/科幻/都市/言情等）",
+    "background": "世界观背景描述",
+    "rules": ["规则1", "规则2"],
+    "current_arc": "当前主要剧情弧",
+    "custom_instructions": "写作风格/要求",
+    "extra_settings": {{"其他设定key": "value"}}
+  }},
+  "characters": {{
+    "角色名": {{
+      "name": "角色名",
+      "description": "外貌描述",
+      "personality": "性格特点",
+      "status": "当前状态",
+      "location": "所在位置",
+      "relationships": {{"其他角色名": "关系描述"}},
+      "inventory": ["物品1"],
+      "notes": "备注"
+    }}
+  }}
+}}
+```
+
+注意：
+1. 尽量从文本中提取所有有用信息，合理分类到对应字段。
+2. 文本中未提及的字段留空字符串或空数组/对象。
+3. 如果文本中有多个角色，全部提取。
+4. session_name 应简短概括该小说主题（5-15字）。
+5. 只输出 JSON，不要输出额外的解释文字。
+"""
+
+
 def _build_characters_block(characters: dict[str, CharacterState]) -> str:
     """构建角色状态文本块"""
     if not characters:
@@ -261,6 +302,85 @@ class AIService:
         )
 
         return story_text, updated_chars, updated_world
+
+
+    async def parse_text_to_session(
+        self,
+        raw_text: str,
+        temperature: float = 0.3,
+    ) -> tuple[str, WorldSetting, dict[str, CharacterState]]:
+        """
+        解析用户提供的自由文本，通过 LLM 提取结构化的会话设定。
+        返回: (session_name, world_setting, characters)
+        """
+        if not self.is_configured:
+            raise RuntimeError("AI 服务未配置，请先设置 API Key")
+
+        system_prompt = PARSE_TEXT_PROMPT
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": raw_text},
+        ]
+
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=4000,
+        )
+
+        raw_response = response.choices[0].message.content or "{}"
+
+        # 提取 JSON
+        json_str = raw_response.strip()
+        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", json_str, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            brace_match = re.search(r"\{.*\}", json_str, re.DOTALL)
+            if brace_match:
+                json_str = brace_match.group(0)
+
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError:
+            raise ValueError("AI 返回的格式无法解析，请重新尝试")
+
+        # 构建 WorldSetting
+        ws_data = data.get("world_setting", {})
+        world_setting = WorldSetting(
+            title=ws_data.get("title", ""),
+            genre=ws_data.get("genre", ""),
+            background=ws_data.get("background", ""),
+            rules=ws_data.get("rules", []),
+            current_arc=ws_data.get("current_arc", ""),
+            custom_instructions=ws_data.get("custom_instructions", ""),
+            extra_settings=ws_data.get("extra_settings", {}),
+        )
+
+        # 构建 Characters
+        characters: dict[str, CharacterState] = {}
+        chars_data = data.get("characters", {})
+        if isinstance(chars_data, dict):
+            for char_name, char_info in chars_data.items():
+                if isinstance(char_info, dict):
+                    try:
+                        characters[char_name] = CharacterState(
+                            name=char_info.get("name", char_name),
+                            description=char_info.get("description", ""),
+                            personality=char_info.get("personality", ""),
+                            status=char_info.get("status", ""),
+                            location=char_info.get("location", ""),
+                            relationships=char_info.get("relationships", {}),
+                            inventory=char_info.get("inventory", []),
+                            notes=char_info.get("notes", ""),
+                        )
+                    except Exception:
+                        characters[char_name] = CharacterState(name=char_name)
+
+        session_name = data.get("session_name", ws_data.get("title", "未命名会话"))
+
+        return session_name, world_setting, characters
 
 
 # 全局单例

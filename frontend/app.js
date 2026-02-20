@@ -143,7 +143,11 @@ function renderSessionList() {
   `).join('');
 }
 
-function openNewSessionModal() { openModal('newSessionModal'); }
+function openNewSessionModal() {
+  // 重置为手动模式
+  switchCreateMode('manual');
+  openModal('newSessionModal');
+}
 
 async function createSession() {
   const name = $('#newSessionName').value.trim() || '未命名会话';
@@ -173,6 +177,65 @@ async function createSession() {
     selectSession(session.session_id);
   } catch (e) {
     showToast('创建失败: ' + e.message);
+  }
+}
+
+// ─────────── 创建模式切换 ───────────
+
+function switchCreateMode(mode) {
+  const manualPanel = $('#manualCreatePanel');
+  const smartPanel = $('#smartCreatePanel');
+  const btnManual = $('#btnManualCreate');
+  const btnSmart = $('#btnSmartParse');
+  const tabManual = $('#tabManual');
+  const tabSmart = $('#tabSmart');
+
+  if (mode === 'smart') {
+    manualPanel.style.display = 'none';
+    smartPanel.style.display = '';
+    btnManual.style.display = 'none';
+    btnSmart.style.display = '';
+    tabManual.classList.remove('active');
+    tabSmart.classList.add('active');
+  } else {
+    manualPanel.style.display = '';
+    smartPanel.style.display = 'none';
+    btnManual.style.display = '';
+    btnSmart.style.display = 'none';
+    tabManual.classList.add('active');
+    tabSmart.classList.remove('active');
+  }
+}
+
+async function smartParseAndCreate() {
+  const text = $('#smartText').value.trim();
+  if (!text) { showToast('请输入设定文本'); return; }
+
+  const btn = $('#btnSmartParse');
+  const statusEl = $('#smartParseStatus');
+  btn.disabled = true;
+  btn.textContent = '解析中...';
+  statusEl.className = 'status-badge';
+  statusEl.style.display = 'none';
+
+  try {
+    const session = await apiJson('/api/session/parse-text', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+
+    closeModal('newSessionModal');
+    showToast('会话创建成功（智能解析）');
+    $('#smartText').value = '';
+    await loadSessions();
+    selectSession(session.session_id);
+  } catch (e) {
+    statusEl.className = 'status-badge error';
+    statusEl.textContent = '解析失败: ' + e.message;
+    statusEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✦ 解析并创建';
   }
 }
 
