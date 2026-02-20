@@ -11,8 +11,7 @@ let currentMainline = [];       // 当前主线数据
 let currentMainlineSummary = ''; // 当前主线概述
 let _taskPollTimer = null;       // 任务轮询定时器
 let _activeTasks = 0;            // 当前活跃的 AI 任务数
-let _currentSession = null;      // 完整的当前会话数据（用于工作区对比）
-let _mainlineSnapshot = null;    // 主线快照：收入主线时产生，未收入时为会话初始状态
+let _currentSession = null;      // 完整的当前会话数据
 
 // ─────────── 工具函数 ───────────
 
@@ -355,19 +354,6 @@ async function selectSession(sid) {
 function renderSession(session) {
   _currentSession = session;
 
-  // 保存主线快照：有主线快照数据则用之，否则用当前状态作为初始快照
-  _mainlineSnapshot = {
-    characters: (session.mainline_characters && Object.keys(session.mainline_characters).length)
-      ? JSON.parse(JSON.stringify(session.mainline_characters))
-      : JSON.parse(JSON.stringify(session.characters || {})),
-    world_setting: session.mainline_world_setting
-      ? JSON.parse(JSON.stringify(session.mainline_world_setting))
-      : (session.world_setting ? JSON.parse(JSON.stringify(session.world_setting)) : null),
-    locations: (session.mainline_locations && Object.keys(session.mainline_locations).length)
-      ? JSON.parse(JSON.stringify(session.mainline_locations))
-      : JSON.parse(JSON.stringify(session.locations || {})),
-  };
-
   $('#sessionTitle').textContent = session.name || '未命名会话';
   $('#inputArea').style.display = '';
   $('#btnUndo').disabled = !session.history || session.history.length === 0;
@@ -394,7 +380,6 @@ function renderSession(session) {
 
 function showWelcome() {
   _currentSession = null;
-  _mainlineSnapshot = null;
   $('#sessionTitle').textContent = '请选择或创建一个会话';
   $('#inputArea').style.display = 'none';
   $('#sessionConfigPanel').style.display = 'none';
@@ -724,34 +709,30 @@ function renderWorkspace(session) {
 
   panelEl.style.display = '';
 
+  // 工作区状态：当前实时状态
   const currentChars = session.characters || {};
   const currentWorld = session.world_setting;
   const currentLocs = session.locations || {};
 
-  // 使用 _mainlineSnapshot 作为主线面板的稳定数据源（不受生成影响）
-  const snapshot = _mainlineSnapshot || { characters: currentChars, world_setting: currentWorld, locations: currentLocs };
+  // 主线状态：直接从服务端字段读取，服务端保证始终有值
+  const mainlineChars = session.mainline_characters || {};
+  const mainlineWorld = session.mainline_world_setting || null;
+  const mainlineLocs = session.mainline_locations || {};
 
-  // 主线状态面板 —— 展示主线快照（收入主线时更新，否则为会话初始状态）
-  renderStatePanelCharacters($('#mainlineStateCharacters'), snapshot.characters, null);
-  renderStatePanelWorld($('#mainlineStateWorld'), snapshot.world_setting, null);
-  renderStatePanelLocations($('#mainlineStateLocations'), snapshot.locations, null);
+  // 主线状态面板 —— 展示服务端维护的主线快照
+  renderStatePanelCharacters($('#mainlineStateCharacters'), mainlineChars, null);
+  renderStatePanelWorld($('#mainlineStateWorld'), mainlineWorld, null);
+  renderStatePanelLocations($('#mainlineStateLocations'), mainlineLocs, null);
 
-  // 判断当前状态和主线快照是否相同（用于决定工作区是否做差异高亮）
-  const snapshotCharsStr = JSON.stringify(snapshot.characters);
-  const snapshotWorldStr = JSON.stringify(snapshot.world_setting);
-  const snapshotLocsStr = JSON.stringify(snapshot.locations);
-  const hasDiff = JSON.stringify(currentChars) !== snapshotCharsStr
-    || JSON.stringify(currentWorld) !== snapshotWorldStr
-    || JSON.stringify(currentLocs) !== snapshotLocsStr;
+  // 判断工作区与主线是否有差异
+  const hasDiff = JSON.stringify(currentChars) !== JSON.stringify(mainlineChars)
+    || JSON.stringify(currentWorld) !== JSON.stringify(mainlineWorld)
+    || JSON.stringify(currentLocs) !== JSON.stringify(mainlineLocs);
 
   // 工作区状态面板 —— 展示当前状态；有差异时与主线快照对比高亮
-  const wsCharsBaseline = hasDiff ? snapshot.characters : null;
-  const wsWorldBaseline = hasDiff ? snapshot.world_setting : null;
-  const wsLocsBaseline = hasDiff ? snapshot.locations : null;
-
-  renderStatePanelCharacters($('#workspaceStateCharacters'), currentChars, wsCharsBaseline);
-  renderStatePanelWorld($('#workspaceStateWorld'), currentWorld, wsWorldBaseline);
-  renderStatePanelLocations($('#workspaceStateLocations'), currentLocs, wsLocsBaseline);
+  renderStatePanelCharacters($('#workspaceStateCharacters'), currentChars, hasDiff ? mainlineChars : null);
+  renderStatePanelWorld($('#workspaceStateWorld'), currentWorld, hasDiff ? mainlineWorld : null);
+  renderStatePanelLocations($('#workspaceStateLocations'), currentLocs, hasDiff ? mainlineLocs : null);
 }
 
 /**
@@ -1012,24 +993,10 @@ async function addToMainline(btnEl) {
     currentMainlineSummary = data.mainline_summary || '';
     renderMainlinePanel();
 
-    // 收入主线时会快照当前状态，需要刷新 session 数据以更新工作区
+    // 收入主线时服务端会更新 mainline 快照，刷新 session 数据
     try {
       const fullSession = await apiJson(`/api/session/${currentSessionId}`);
       _currentSession = fullSession;
-
-      // 更新主线快照：收入主线后，服务端会产生新的 mainline 快照
-      _mainlineSnapshot = {
-        characters: (fullSession.mainline_characters && Object.keys(fullSession.mainline_characters).length)
-          ? JSON.parse(JSON.stringify(fullSession.mainline_characters))
-          : JSON.parse(JSON.stringify(fullSession.characters || {})),
-        world_setting: fullSession.mainline_world_setting
-          ? JSON.parse(JSON.stringify(fullSession.mainline_world_setting))
-          : (fullSession.world_setting ? JSON.parse(JSON.stringify(fullSession.world_setting)) : null),
-        locations: (fullSession.mainline_locations && Object.keys(fullSession.mainline_locations).length)
-          ? JSON.parse(JSON.stringify(fullSession.mainline_locations))
-          : JSON.parse(JSON.stringify(fullSession.locations || {})),
-      };
-
       renderWorkspace(fullSession);
     } catch (_) { /* 不影响主流程 */ }
 

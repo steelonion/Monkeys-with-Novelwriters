@@ -44,6 +44,8 @@ class SessionManager:
             characters=characters or {},
             locations=locations or {},
         )
+        # 初始化主线快照为初始状态，确保主线面板从一开始就有数据
+        self._snapshot_mainline_state(session)
         self._active_sessions[session.session_id] = session
         self._save_to_disk(session)
         return session
@@ -163,6 +165,10 @@ class SessionManager:
             session.characters = characters
         if locations is not None:
             session.locations = locations
+
+        # 如果还没有主线条目，保持主线快照与当前状态同步
+        if not session.mainline:
+            self._snapshot_mainline_state(session)
 
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
