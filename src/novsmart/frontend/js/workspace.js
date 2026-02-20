@@ -10,17 +10,6 @@ function switchStateTab(tab) {
   document.getElementById(tab === 'mainline' ? 'mainlineStatePanel' : 'workspaceStatePanel').classList.add('active');
 }
 
-/** 选中状态卡片（角色/地点），点击时切换选中态 */
-function selectStateCard(cardEl) {
-  // 取消同类卡片的选中
-  const parent = cardEl.parentElement;
-  parent.querySelectorAll('.ws-selected').forEach(el => {
-    if (el !== cardEl) el.classList.remove('ws-selected');
-  });
-  // 切换当前卡片选中
-  cardEl.classList.toggle('ws-selected');
-}
-
 function renderWorkspace(session) {
   const panelEl = $('#statePanel');
   if (!session) { panelEl.style.display = 'none'; return; }
@@ -76,7 +65,7 @@ function renderStatePanelCharacters(container, current, baseline, target) {
     const cardClass = (isNew || isChanged) ? 'ws-char-card ws-changed' : 'ws-char-card';
     const badge = isNew ? '<span class="ws-badge-new">新</span>' : (isChanged ? '<span class="ws-badge-updated">已更新</span>' : '');
 
-    html += `<div class="${cardClass}" style="cursor:pointer" data-char-name="${escHtml(charData.name)}" data-target="${target}" onclick="selectStateCard(this)">`;
+    html += `<div class="${cardClass}" data-char-name="${escHtml(charData.name)}" data-target="${target}">`;
     html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}<span class="ws-edit-btn" title="编辑" onclick="event.stopPropagation(); openEditCharState(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">✏</span></div>`;
 
     const fields = [
@@ -175,7 +164,7 @@ function renderStatePanelLocations(container, current, baseline, target) {
     const locData = cur || bl;
 
     const cardClass = (isNew || isChanged) ? 'ws-loc-card ws-changed' : 'ws-loc-card';
-    html += `<div class="${cardClass}" style="cursor:pointer" data-loc-name="${escHtml(locData.name)}" data-target="${target}" onclick="selectStateCard(this)">`;
+    html += `<div class="${cardClass}" data-loc-name="${escHtml(locData.name)}" data-target="${target}">`;
     html += `<div class="ws-loc-name">📍 ${escHtml(locData.name)}<span class="ws-edit-btn" title="编辑" onclick="event.stopPropagation(); openEditLocState(this.closest('.ws-loc-card').dataset.locName, this.closest('.ws-loc-card').dataset.target)">✏</span>`;
     if (isNew) html += ' <span class="ws-badge-new">新</span>';
     else if (isChanged) html += ' <span class="ws-badge-updated">已更新</span>';
