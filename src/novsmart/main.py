@@ -191,7 +191,7 @@ async def generate(req: GenerateRequest):
             session=session,
             user_prompt=req.user_prompt,
             temperature=req.temperature,
-            max_tokens=req.max_tokens,
+            suggested_length=req.suggested_length,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成失败：{str(e)}")

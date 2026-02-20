@@ -87,6 +87,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
 2. 遵守世界观规则，不要违背已建立的设定。
 3. 文笔流畅，情节紧凑，富有画面感。
 4. 续写内容要自然衔接上文。
+5. 本次续写的小说正文部分建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。
 
 ## 输出格式要求（必须严格遵守）
 你的回复必须分为两个部分，用特殊分隔符分开：
@@ -287,7 +288,7 @@ def _build_custom_field_defs_hint(sc: SessionConfig) -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt(session: Session) -> str:
+def build_system_prompt(session: Session, suggested_length: int = 2000) -> str:
     """根据会话状态构建完整的系统提示词"""
     ws = session.world_setting
     sc = session.session_config
@@ -321,6 +322,7 @@ def build_system_prompt(session: Session) -> str:
         mainline_summary=mainline_summary,
         recent_story=_build_recent_story(session.history),
         custom_field_defs_hint=custom_field_defs_hint,
+        suggested_length=suggested_length,
     )
 
 
@@ -476,7 +478,7 @@ class AIService:
         session: Session,
         user_prompt: str,
         temperature: float = 0.85,
-        max_tokens: int = 2000,
+        suggested_length: int = 2000,
     ) -> tuple[str, dict[str, CharacterState], WorldSetting, SessionConfig, dict[str, LocationSetting]]:
         """
         调用 AI 生成小说片段并解析状态更新。
@@ -485,7 +487,7 @@ class AIService:
         if not self.is_configured:
             raise RuntimeError("AI 服务未配置，请先设置 API Key")
 
-        system_prompt = build_system_prompt(session)
+        system_prompt = build_system_prompt(session, suggested_length=suggested_length)
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -499,13 +501,12 @@ class AIService:
                 model=self.model,
                 messages=messages,
                 temperature=temperature,
-                max_tokens=max_tokens,
             )
 
             raw_text = response.choices[0].message.content or ""
 
             _debug_log("generate", messages, raw_text,
-                       model=self.model, temperature=temperature, max_tokens=max_tokens)
+                       model=self.model, temperature=temperature, suggested_length=suggested_length)
 
             story_text, updated_chars, updated_world, updated_session_config, updated_locations = parse_ai_response(
                 raw_text, session.characters, session.world_setting, session.session_config, session.locations

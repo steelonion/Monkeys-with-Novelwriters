@@ -239,15 +239,15 @@ class SessionManager:
         for i, e in enumerate(session.mainline):
             e.order = i
 
-        # 快照当前状态到主线状态
-        self._snapshot_mainline_state(session)
+        # 根据主线条目对应的历史步骤更新主线快照
+        self._update_mainline_snapshot(session)
 
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
         return entry
 
     def _snapshot_mainline_state(self, session: Session) -> None:
-        """将当前会话状态快照到主线状态字段"""
+        """将当前会话状态快照到主线状态字段（仅作回退使用）"""
         session.mainline_characters = {
             name: char.model_copy(deep=True)
             for name, char in session.characters.items()
@@ -260,6 +260,54 @@ class SessionManager:
             name: loc.model_copy(deep=True)
             for name, loc in session.locations.items()
         }
+
+    def _update_mainline_snapshot(self, session: Session) -> None:
+        """根据主线条目匹配的历史步骤快照来更新主线状态。
+
+        遍历所有主线条目，找到对应的历史步骤（通过 generated_text 匹配），
+        取时间上最晚的步骤快照作为主线状态。这样可确保只有已收入主线的
+        内容所对应的状态才会进入主线快照，避免未合并内容污染主线。
+        """
+        if not session.mainline:
+            # 主线为空时清空快照
+            session.mainline_characters = {}
+            session.mainline_world_setting = None
+            session.mainline_session_config = None
+            session.mainline_locations = {}
+            return
+
+        if not session.history:
+            # 没有历史记录则回退到当前状态
+            self._snapshot_mainline_state(session)
+            return
+
+        # 建立 generated_text -> 最新步骤索引 的映射
+        text_to_step_idx: dict[str, int] = {}
+        for idx, step in enumerate(session.history):
+            text_to_step_idx[step.generated_text] = idx
+
+        # 找出所有主线条目对应的历史步骤中，时间上最晚的那个
+        latest_step_idx = -1
+        for entry in session.mainline:
+            step_idx = text_to_step_idx.get(entry.text, -1)
+            if step_idx > latest_step_idx:
+                latest_step_idx = step_idx
+
+        if latest_step_idx >= 0:
+            target_step = session.history[latest_step_idx]
+            session.mainline_characters = {
+                name: char.model_copy(deep=True)
+                for name, char in target_step.characters_snapshot.items()
+            }
+            session.mainline_world_setting = target_step.world_snapshot.model_copy(deep=True)
+            session.mainline_session_config = target_step.session_config_snapshot.model_copy(deep=True)
+            session.mainline_locations = {
+                name: loc.model_copy(deep=True)
+                for name, loc in target_step.locations_snapshot.items()
+            }
+        else:
+            # 主线文本在历史中找不到匹配（可能手工编辑过），回退到当前状态
+            self._snapshot_mainline_state(session)
 
     def remove_mainline_entry(self, session_id: str, entry_id: str) -> bool:
         """从主线中移除一个条目"""
@@ -276,6 +324,9 @@ class SessionManager:
         # 重新计算 order
         for i, e in enumerate(session.mainline):
             e.order = i
+
+        # 重新计算主线快照（最晚的主线条目可能已变化）
+        self._update_mainline_snapshot(session)
 
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
@@ -321,6 +372,9 @@ class SessionManager:
         session.mainline = [entry_map[eid] for eid in entry_ids]
         for i, e in enumerate(session.mainline):
             e.order = i
+
+        # 重新排序不改变条目集合，但保持一致性
+        self._update_mainline_snapshot(session)
 
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)

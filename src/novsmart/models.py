@@ -127,7 +127,7 @@ class GenerateRequest(BaseModel):
     session_id: str
     user_prompt: str = Field(..., description="用户输入的下一段剧情提示")
     temperature: float = Field(default=0.85, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=2000, ge=100, le=8000)
+    suggested_length: int = Field(default=2000, ge=100, le=8000, description="建议的片段字数（柔性限制）")
 
 
 class GenerateResponse(BaseModel):

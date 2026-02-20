@@ -709,7 +709,7 @@ async function generate() {
       session_id: currentSessionId,
       user_prompt: prompt,
       temperature: parseFloat($('#temperature').value),
-      max_tokens: parseInt($('#maxTokens').value),
+      suggested_length: parseInt($('#suggestedLength').value),
     };
     const data = await apiJson('/api/generate', {
       method: 'POST',
