@@ -120,13 +120,38 @@ async def parse_text_to_session(req: ParseTextRequest):
     return session.model_dump()
 
 
+@app.post("/api/parse-text")
+async def parse_text_only(req: ParseTextRequest):
+    """仅解析文本，返回结构化数据供用户修改，不创建会话"""
+    if not ai_service.is_configured:
+        raise HTTPException(status_code=400, detail="请先配置 API Key")
+
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="请输入文本内容")
+
+    try:
+        session_name, world_setting, characters, locations = await ai_service.parse_text_to_session(req.text)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析失败：{str(e)}")
+
+    return {
+        "session_name": session_name,
+        "world_setting": world_setting.model_dump(),
+        "characters": {k: v.model_dump() for k, v in characters.items()},
+        "locations": {k: v.model_dump() for k, v in locations.items()},
+    }
+
+
 # ────────────────────────────── 设定管理 ──────────────────────────────
 
 @app.put("/api/session/setting")
 async def update_setting(req: UpdateSettingRequest):
-    """更新会话的世界设定/角色"""
+    """更新会话的世界设定/角色/地点/名称"""
     session = session_manager.update_setting(
         session_id=req.session_id,
+        name=req.name,
         world_setting=req.world_setting,
         characters=req.characters,
         locations=req.locations,

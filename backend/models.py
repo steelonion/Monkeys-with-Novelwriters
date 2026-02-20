@@ -109,6 +109,7 @@ class NewSessionRequest(BaseModel):
 class UpdateSettingRequest(BaseModel):
     """更新设定请求"""
     session_id: str
+    name: Optional[str] = None
     world_setting: Optional[WorldSetting] = None
     characters: Optional[dict[str, CharacterState]] = None
     locations: Optional[dict[str, LocationSetting]] = None

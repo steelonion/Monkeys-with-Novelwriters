@@ -122,6 +122,7 @@ class SessionManager:
     def update_setting(
         self,
         session_id: str,
+        name: str | None = None,
         world_setting: WorldSetting | None = None,
         characters: dict[str, CharacterState] | None = None,
         locations: dict[str, LocationSetting] | None = None,
@@ -130,6 +131,8 @@ class SessionManager:
         if not session:
             return None
 
+        if name is not None:
+            session.name = name
         if world_setting is not None:
             session.world_setting = world_setting
         if characters is not None:

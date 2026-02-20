@@ -6,6 +6,7 @@ const API = '';  // 同源，留空即可
 
 let currentSessionId = null;
 let sessions = [];
+let sessionModalMode = 'create'; // 'create' or 'edit'
 
 // ─────────── 工具函数 ───────────
 
@@ -144,12 +145,20 @@ function renderSessionList() {
 }
 
 function openNewSessionModal() {
-  // 重置为手动模式
+  sessionModalMode = 'create';
+  clearSessionFormFields();
   switchCreateMode('manual');
+  $('#sessionModalTitle').textContent = '创建新会话';
+  $('#btnManualCreate').textContent = '创建';
+  $('#createTabSwitcher').style.display = '';
   openModal('newSessionModal');
 }
 
 async function createSession() {
+  if (sessionModalMode === 'edit') {
+    return updateSessionSettings();
+  }
+
   const name = $('#newSessionName').value.trim() || '未命名会话';
   const rules = $('#newRules').value.trim().split('\n').filter(Boolean);
 
@@ -207,7 +216,7 @@ function switchCreateMode(mode) {
   }
 }
 
-async function smartParseAndCreate() {
+async function smartParseAndFill() {
   const text = $('#smartText').value.trim();
   if (!text) { showToast('请输入设定文本'); return; }
 
@@ -219,24 +228,92 @@ async function smartParseAndCreate() {
   statusEl.style.display = 'none';
 
   try {
-    const session = await apiJson('/api/session/parse-text', {
+    const data = await apiJson('/api/parse-text', {
       method: 'POST',
       body: JSON.stringify({ text }),
     });
 
-    closeModal('newSessionModal');
-    showToast('会话创建成功（智能解析）');
-    $('#smartText').value = '';
-    await loadSessions();
-    selectSession(session.session_id);
+    // 填充表单字段
+    fillFormFromParsedData(data);
+
+    // 切换到手动模式供用户审查
+    switchCreateMode('manual');
+    showToast('解析完成，请检查并修改后创建');
   } catch (e) {
     statusEl.className = 'status-badge error';
     statusEl.textContent = '解析失败: ' + e.message;
     statusEl.style.display = 'block';
   } finally {
     btn.disabled = false;
-    btn.textContent = '✦ 解析并创建';
+    btn.textContent = '✦ 智能解析';
   }
+}
+
+function fillFormFromParsedData(data) {
+  const ws = data.world_setting || {};
+  $('#newSessionName').value = data.session_name || '';
+  $('#newTitle').value = ws.title || '';
+  $('#newGenre').value = ws.genre || '';
+  $('#newBackground').value = ws.background || '';
+  $('#newRules').value = (ws.rules || []).join('\n');
+  $('#newArc').value = ws.current_arc || '';
+  $('#newInstructions').value = ws.custom_instructions || '';
+}
+
+function clearSessionFormFields() {
+  ['#newSessionName','#newTitle','#newGenre','#newBackground','#newRules','#newArc','#newInstructions','#smartText'].forEach(s => $(s).value = '');
+  $('#smartParseStatus').style.display = 'none';
+}
+
+// ─────────── 编辑会话设定 ───────────
+
+async function openEditSessionModal() {
+  if (!currentSessionId) { showToast('请先选择一个会话'); return; }
+
+  try {
+    const session = await apiJson(`/api/session/${currentSessionId}`);
+    sessionModalMode = 'edit';
+
+    const ws = session.world_setting || {};
+    $('#newSessionName').value = session.name || '';
+    $('#newTitle').value = ws.title || '';
+    $('#newGenre').value = ws.genre || '';
+    $('#newBackground').value = ws.background || '';
+    $('#newRules').value = (ws.rules || []).join('\n');
+    $('#newArc').value = ws.current_arc || '';
+    $('#newInstructions').value = ws.custom_instructions || '';
+
+    switchCreateMode('manual');
+    $('#sessionModalTitle').textContent = '编辑会话设定';
+    $('#btnManualCreate').textContent = '保存';
+    $('#createTabSwitcher').style.display = 'none';
+    openModal('newSessionModal');
+  } catch (e) { showToast('加载失败: ' + e.message); }
+}
+
+async function updateSessionSettings() {
+  const name = $('#newSessionName').value.trim() || '未命名会话';
+  const ws = {
+    title: $('#newTitle').value.trim(),
+    genre: $('#newGenre').value.trim(),
+    background: $('#newBackground').value.trim(),
+    rules: $('#newRules').value.trim().split('\n').filter(Boolean),
+    current_arc: $('#newArc').value.trim(),
+    custom_instructions: $('#newInstructions').value.trim(),
+  };
+
+  try {
+    const updated = await apiJson('/api/session/setting', {
+      method: 'PUT',
+      body: JSON.stringify({ session_id: currentSessionId, name, world_setting: ws }),
+    });
+
+    closeModal('newSessionModal');
+    renderSession(updated);
+    await loadSessions();
+    renderSessionList();
+    showToast('设定已更新');
+  } catch (e) { showToast('更新失败: ' + e.message); }
 }
 
 async function deleteSession(sid) {

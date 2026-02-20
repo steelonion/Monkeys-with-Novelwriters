@@ -56,7 +56,10 @@
 
     <!-- 世界设定面板 -->
     <div class="panel" id="worldPanel" style="display:none">
-      <div class="panel-title"><i class="icon">🌍</i> 世界设定</div>
+      <div class="panel-title">
+        <i class="icon">🌍</i> 世界设定
+        <button class="btn btn-sm btn-ghost" onclick="openEditSessionModal()">✏ 编辑</button>
+      </div>
       <div id="worldInfo" class="world-info"></div>
     </div>
 
@@ -114,12 +117,12 @@
   <div class="modal-overlay" id="newSessionModal">
     <div class="modal modal-wide">
       <div class="modal-header">
-        <h3>创建新会话</h3>
+        <h3 id="sessionModalTitle">创建新会话</h3>
         <button class="btn btn-icon" onclick="closeModal('newSessionModal')">✕</button>
       </div>
       <div class="modal-body">
         <!-- 模式切换标签 -->
-        <div class="tab-switcher">
+        <div class="tab-switcher" id="createTabSwitcher">
           <button class="tab-btn active" onclick="switchCreateMode('manual')" id="tabManual">手动填写</button>
           <button class="tab-btn" onclick="switchCreateMode('smart')" id="tabSmart">✦ 智能解析</button>
         </div>
@@ -154,7 +157,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal('newSessionModal')">取消</button>
-        <button class="btn btn-primary" id="btnSmartParse" style="display:none" onclick="smartParseAndCreate()">✦ 解析并创建</button>
+        <button class="btn btn-primary" id="btnSmartParse" style="display:none" onclick="smartParseAndFill()">✦ 智能解析</button>
         <button class="btn btn-primary" id="btnManualCreate" onclick="createSession()">创建</button>
       </div>
     </div>
