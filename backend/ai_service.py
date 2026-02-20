@@ -1,0 +1,267 @@
+"""
+AI 服务层 - 封装 OpenAI API 调用，构建提示词，解析格式化输出
+"""
+
+from __future__ import annotations
+import json
+import re
+import copy
+from openai import AsyncOpenAI
+from models import CharacterState, WorldSetting, Session
+
+
+# ────────────────────────────── 提示词模板 ──────────────────────────────
+
+SYSTEM_PROMPT_TEMPLATE = """\
+你是一位专业的小说创作助手。你需要根据用户提供的设定和提示，续写高质量的小说片段。
+
+## 当前小说设定
+- 标题：{title}
+- 类型：{genre}
+- 世界观：{background}
+- 世界规则：{rules}
+- 当前剧情弧：{current_arc}
+- 写作风格要求：{custom_instructions}
+{extra_settings}
+
+## 当前角色状态
+{characters_block}
+
+## 之前的剧情摘要(最近片段)
+{recent_story}
+
+## 重要写作规则
+1. 保持角色性格一致性，行为符合角色设定。
+2. 遵守世界观规则，不要违背已建立的设定。
+3. 文笔流畅，情节紧凑，富有画面感。
+4. 续写内容要自然衔接上文。
+
+## 输出格式要求（必须严格遵守）
+你的回复必须分为两个部分，用特殊分隔符分开：
+
+**第一部分**：小说正文内容（直接输出故事文本，不要包含任何标记）
+
+===CHARACTER_STATE_UPDATE===
+
+**第二部分**：一个 JSON 对象，用于更新角色状态和世界设定。格式如下：
+```json
+{{
+  "characters": {{
+    "角色名": {{
+      "name": "角色名",
+      "description": "外貌描述",
+      "personality": "性格特点",
+      "status": "当前状态(情绪/身体)",
+      "location": "当前位置",
+      "relationships": {{"其他角色名": "关系描述"}},
+      "inventory": ["物品1", "物品2"],
+      "notes": "备注"
+    }}
+  }},
+  "world_update": {{
+    "current_arc": "更新后的当前剧情弧（如有变化）",
+    "extra_settings": {{"新发现的设定key": "value"}}
+  }}
+}}
+```
+
+注意：
+- 只需要列出**状态发生变化**的角色，未变化的角色不用列出。
+- world_update 只列出有变化的字段，没变化可以留空对象。
+- JSON 必须合法，可以被直接解析。
+"""
+
+
+def _build_characters_block(characters: dict[str, CharacterState]) -> str:
+    """构建角色状态文本块"""
+    if not characters:
+        return "（暂无角色信息）"
+
+    lines = []
+    for name, char in characters.items():
+        lines.append(f"### {name}")
+        lines.append(f"- 描述：{char.description}")
+        lines.append(f"- 性格：{char.personality}")
+        lines.append(f"- 当前状态：{char.status}")
+        lines.append(f"- 位置：{char.location}")
+        if char.relationships:
+            rels = "、".join(f"{k}({v})" for k, v in char.relationships.items())
+            lines.append(f"- 关系：{rels}")
+        if char.inventory:
+            lines.append(f"- 随身物品：{'、'.join(char.inventory)}")
+        if char.notes:
+            lines.append(f"- 备注：{char.notes}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _build_recent_story(history, max_steps: int = 3) -> str:
+    """从历史记录提取最近的故事片段作为上文"""
+    if not history:
+        return "（这是故事的开端，暂无前文）"
+
+    recent = history[-max_steps:]
+    parts = []
+    for step in recent:
+        parts.append(step.generated_text)
+    return "\n\n---\n\n".join(parts)
+
+
+def build_system_prompt(session: Session) -> str:
+    """根据会话状态构建完整的系统提示词"""
+    ws = session.world_setting
+
+    rules_text = "\n".join(f"  - {r}" for r in ws.rules) if ws.rules else "暂无"
+    extra = ""
+    if ws.extra_settings:
+        extra = "\n".join(f"- {k}：{v}" for k, v in ws.extra_settings.items())
+
+    return SYSTEM_PROMPT_TEMPLATE.format(
+        title=ws.title or "未定",
+        genre=ws.genre or "未定",
+        background=ws.background or "暂无",
+        rules=rules_text,
+        current_arc=ws.current_arc or "暂无",
+        custom_instructions=ws.custom_instructions or "无特殊要求",
+        extra_settings=extra,
+        characters_block=_build_characters_block(session.characters),
+        recent_story=_build_recent_story(session.history),
+    )
+
+
+# ────────────────────────────── 响应解析 ──────────────────────────────
+
+SEPARATOR = "===CHARACTER_STATE_UPDATE==="
+
+
+def parse_ai_response(
+    raw_text: str,
+    existing_characters: dict[str, CharacterState],
+    existing_world: WorldSetting,
+) -> tuple[str, dict[str, CharacterState], WorldSetting]:
+    """
+    解析 AI 返回的文本，分离小说正文和状态更新 JSON。
+    返回: (story_text, updated_characters, updated_world)
+    """
+    # 分离正文和 JSON 部分
+    if SEPARATOR in raw_text:
+        story_text, json_part = raw_text.split(SEPARATOR, 1)
+    else:
+        # 如果没有分隔符，尝试从末尾找 JSON
+        story_text = raw_text
+        json_part = ""
+
+    story_text = story_text.strip()
+
+    # 深拷贝现有状态
+    updated_characters = {k: v.model_copy(deep=True) for k, v in existing_characters.items()}
+    updated_world = existing_world.model_copy(deep=True)
+
+    if not json_part.strip():
+        return story_text, updated_characters, updated_world
+
+    # 提取 JSON（可能被 ```json ``` 包裹）
+    json_str = json_part.strip()
+    json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", json_str, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1)
+    else:
+        # 尝试直接找 JSON 对象
+        brace_match = re.search(r"\{.*\}", json_str, re.DOTALL)
+        if brace_match:
+            json_str = brace_match.group(0)
+
+    try:
+        update_data = json.loads(json_str)
+    except json.JSONDecodeError:
+        # JSON 解析失败，返回原始状态
+        return story_text, updated_characters, updated_world
+
+    # 更新角色状态
+    if "characters" in update_data and isinstance(update_data["characters"], dict):
+        for char_name, char_data in update_data["characters"].items():
+            if isinstance(char_data, dict):
+                if char_name in updated_characters:
+                    # 合并更新：只更新非空字段
+                    existing = updated_characters[char_name]
+                    for field_name in CharacterState.model_fields:
+                        if field_name in char_data and char_data[field_name]:
+                            setattr(existing, field_name, char_data[field_name])
+                else:
+                    # 新角色
+                    try:
+                        updated_characters[char_name] = CharacterState(**char_data)
+                    except Exception:
+                        updated_characters[char_name] = CharacterState(name=char_name)
+
+    # 更新世界设定
+    if "world_update" in update_data and isinstance(update_data["world_update"], dict):
+        wu = update_data["world_update"]
+        if wu.get("current_arc"):
+            updated_world.current_arc = wu["current_arc"]
+        if wu.get("extra_settings") and isinstance(wu["extra_settings"], dict):
+            updated_world.extra_settings.update(wu["extra_settings"])
+
+    return story_text, updated_characters, updated_world
+
+
+# ────────────────────────────── AI 调用 ──────────────────────────────
+
+class AIService:
+    """封装 OpenAI API 调用"""
+
+    def __init__(self):
+        self.client: AsyncOpenAI | None = None
+        self.model: str = "gpt-4o"
+        self.api_key: str = ""
+        self.base_url: str = "https://api.openai.com/v1"
+
+    def configure(self, api_key: str, base_url: str = "https://api.openai.com/v1", model: str = "gpt-4o"):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.model = model
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+
+    @property
+    def is_configured(self) -> bool:
+        return self.client is not None
+
+    async def generate(
+        self,
+        session: Session,
+        user_prompt: str,
+        temperature: float = 0.85,
+        max_tokens: int = 2000,
+    ) -> tuple[str, dict[str, CharacterState], WorldSetting]:
+        """
+        调用 AI 生成小说片段并解析状态更新。
+        返回: (story_text, updated_characters, updated_world)
+        """
+        if not self.is_configured:
+            raise RuntimeError("AI 服务未配置，请先设置 API Key")
+
+        system_prompt = build_system_prompt(session)
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请根据以下提示续写小说片段：\n\n{user_prompt}"},
+        ]
+
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        raw_text = response.choices[0].message.content or ""
+
+        story_text, updated_chars, updated_world = parse_ai_response(
+            raw_text, session.characters, session.world_setting
+        )
+
+        return story_text, updated_chars, updated_world
+
+
+# 全局单例
+ai_service = AIService()
