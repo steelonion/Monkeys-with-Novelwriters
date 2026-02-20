@@ -110,7 +110,7 @@
         <div class="input-controls">
           <div class="param-group">
             <label class="param">🌡 温度 <input type="range" id="temperature" min="0" max="2" step="0.05" value="0.85" oninput="this.nextElementSibling.textContent=this.value" /><span>0.85</span></label>
-            <label class="param">📝 片段长度 <input type="range" id="suggestedLength" min="100" max="8000" step="100" value="1000" oninput="this.nextElementSibling.textContent=this.value" /><span>1000</span></label>
+            <label class="param">📝 片段长度 <input type="range" id="suggestedLength" min="100" max="4000" step="100" value="1000" oninput="this.nextElementSibling.textContent=this.value" /><span>1000</span></label>
           </div>
           <button class="btn btn-primary btn-generate" id="btnGenerate" onclick="generate()">
             <span class="btn-text">✦ 生成</span>
@@ -148,6 +148,9 @@
 
     <!-- 工作区状态面板 -->
     <div id="workspaceStatePanel" class="state-tab-content">
+      <div class="workspace-sync-bar">
+        <button class="btn btn-sm btn-accent" onclick="syncMainlineToWorkspace()" title="将主线的角色、世界设定、地点同步到工作区状态">⬇ 从主线同步</button>
+      </div>
       <div class="workspace-section">
         <div class="workspace-section-title">👥 角色状态 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditCharState(null, 'workspace')" title="添加角色">+</button></div>
         <div id="workspaceStateCharacters" class="workspace-content"></div>

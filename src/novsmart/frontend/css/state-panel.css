@@ -55,6 +55,26 @@
   display: flex;
 }
 
+/* 工作区同步栏 */
+.workspace-sync-bar {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity var(--transition);
+}
+.btn-accent:hover {
+  opacity: 0.85;
+}
+
 /* 兼容旧 .workspace 类 */
 .workspace {
   width: var(--workspace-width);
