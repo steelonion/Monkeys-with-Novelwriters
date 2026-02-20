@@ -26,6 +26,37 @@ function toggleSidebar() {
   $('#sidebar').classList.toggle('collapsed');
 }
 
+// ─────────── 主题切换 ───────────
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('novsmart-theme', next);
+  updateThemeIcon(next);
+}
+
+function updateThemeIcon(theme) {
+  const btn = $('#themeToggle');
+  if (btn) btn.textContent = theme === 'light' ? '☀️' : '🌙';
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('novsmart-theme');
+  // 默认跟随系统，无保存则检测系统偏好
+  let theme = saved;
+  if (!theme) {
+    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  updateThemeIcon(theme);
+}
+
 async function apiFetch(path, opts = {}) {
   const url = API + path;
   const res = await fetch(url, {
@@ -442,6 +473,7 @@ document.addEventListener('click', e => {
 // ─────────── 初始化 ───────────
 
 (async function init() {
+  initTheme();
   await loadConfig();
   await loadSessions();
 })();

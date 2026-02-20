@@ -28,6 +28,27 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* ─────────── 亮色主题 ─────────── */
+[data-theme="light"] {
+  --bg-primary: #f5f6fa;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f0f1f5;
+  --bg-hover: #e8e9f0;
+  --border: #d8dae5;
+  --border-light: #c5c8d9;
+  --text-primary: #1a1c2e;
+  --text-secondary: #5a5e78;
+  --text-muted: #8b8fa8;
+  --accent: #6c5ce7;
+  --accent-hover: #5a4bd1;
+  --accent-glow: rgba(108, 92, 231, 0.15);
+  --success: #00b894;
+  --warning: #f39c12;
+  --danger: #e74c3c;
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { font-size: 15px; }
@@ -549,6 +570,27 @@ label textarea::placeholder { color: var(--text-muted); }
 .char-detail-item.full { grid-column: 1 / -1; }
 .char-detail-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .char-detail-value { font-size: 0.88rem; color: var(--text-primary); line-height: 1.6; }
+
+/* ─────────── 主题切换按钮 ─────────── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.theme-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
 
 /* ─────────── 响应式 ─────────── */
 @media (max-width: 768px) {
