@@ -531,6 +531,7 @@ class SessionManager:
             for name, char in session.characters.items():
                 lines.append(f"### {name}\n")
                 lines.append(f"- **描述**：{char.description}")
+                lines.append(f"- **外貌**：{char.appearance}")
                 lines.append(f"- **性格**：{char.personality}")
                 lines.append(f"- **状态**：{char.status}")
                 lines.append(f"- **位置**：{char.location}")

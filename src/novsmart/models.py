@@ -14,7 +14,8 @@ import uuid
 class CharacterState(BaseModel):
     """单个角色的当前状态"""
     name: str = Field(..., description="角色名称")
-    description: str = Field(default="", description="角色基础描述/外貌")
+    description: str = Field(default="", description="角色基础描述")
+    appearance: str = Field(default="", description="外貌描述")
     personality: str = Field(default="", description="性格特点")
     status: str = Field(default="", description="当前状态(情绪、身体状况等)")
     location: str = Field(default="", description="当前所在位置")

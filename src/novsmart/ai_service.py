@@ -102,7 +102,8 @@ SYSTEM_PROMPT_TEMPLATE = """\
   "characters": {{
     "角色名": {{
       "name": "角色名",
-      "description": "外貌描述",
+      "description": "角色基础描述",
+      "appearance": "外貌描述",
       "personality": "性格特点",
       "status": "当前状态(情绪/身体)",
       "location": "当前位置",
@@ -137,7 +138,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
 - world_update 只列出有变化的字段，没变化可以留空对象。
 - locations_update 只列出新出现或发生变化的地点。
 - custom_fields 用于存储任何小说特有的角色属性（如技能、等级、属性值、能力、阵营、修为境界、血统、法术、好感度、阵法、体质等），请根据角色设定中已有的 custom_fields 保持格式一致并更新变化的内容。已有的 custom_fields 键不要遗漏。
-- **重要**：当角色的某些状态信息（如修为等级、技能熟练度、魔力值、战斗力、阵营声望等）无法被 name/description/personality/status/location/relationships/inventory/notes 这些基础字段充分表达时，**必须**将其作为新的 custom_fields 键写入。主动发现并创建新的自定义字段，而不是将所有信息挤入 status 或 notes。
+- **重要**：当角色的某些状态信息（如修为等级、技能熟练度、魔力值、战斗力、阵营声望等）无法被 name/description/appearance/personality/status/location/relationships/inventory/notes 这些基础字段充分表达时，**必须**将其作为新的 custom_fields 键写入。主动发现并创建新的自定义字段，而不是将所有信息挤入 status 或 notes。
 - JSON 必须合法，可以被直接解析。
 """
 
@@ -188,7 +189,8 @@ PARSE_TEXT_PROMPT = """\
   "characters": {{
     "角色名": {{
       "name": "角色名",
-      "description": "外貌描述",
+      "description": "角色基础描述",
+      "appearance": "外貌描述",
       "personality": "性格特点",
       "status": "当前状态",
       "location": "所在位置",
@@ -208,7 +210,7 @@ PARSE_TEXT_PROMPT = """\
 4. session_name 应简短概括该小说主题（5-15字）。
 5. world_setting 只放世界观构建相关的信息（标题、类型、背景、规则等）。
 6. session_config 放会话级别的配置（剧情弧、写作风格要求等）。
-7. 角色的 custom_fields 用于存放不属于基础字段的自定义属性（如技能、等级、属性值、阵营、能力系统、修为境界、血统、法术列表、好感度等）。**请积极从文本中识别并创建合适的 custom_fields**——只要某项信息无法被 name/description/personality/status/location/relationships/inventory/notes 充分表示，就应该为它建立一个语义清晰的 custom_field 键。例如：修仙小说可创建"修为境界"、"功法"、"灵根"；游戏类可创建"等级"、"HP"、"MP"、"技能列表"等。
+7. 角色的 custom_fields 用于存放不属于基础字段的自定义属性（如技能、等级、属性值、阵营、能力系统、修为境界、血统、法术列表、好感度等）。**请积极从文本中识别并创建合适的 custom_fields**——只要某项信息无法被 name/description/appearance/personality/status/location/relationships/inventory/notes 充分表示，就应该为它建立一个语义清晰的 custom_field 键。例如：修仙小说可创建"修为境界"、"功法"、"灵根"；游戏类可创建"等级"、"HP"、"MP"、"技能列表"等。
 8. 只输出 JSON，不要输出额外的解释文字。
 """
 
@@ -222,6 +224,7 @@ def _build_characters_block(characters: dict[str, CharacterState]) -> str:
     for name, char in characters.items():
         lines.append(f"### {name}")
         lines.append(f"- 描述：{char.description}")
+        lines.append(f"- 外貌：{char.appearance}")
         lines.append(f"- 性格：{char.personality}")
         lines.append(f"- 当前状态：{char.status}")
         lines.append(f"- 位置：{char.location}")
@@ -664,6 +667,7 @@ class AIService:
                         characters[char_name] = CharacterState(
                             name=char_info.get("name", char_name),
                             description=char_info.get("description", ""),
+                            appearance=char_info.get("appearance", ""),
                             personality=char_info.get("personality", ""),
                             status=char_info.get("status", ""),
                             location=char_info.get("location", ""),

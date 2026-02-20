@@ -419,6 +419,7 @@ function showCharDetail(c) {
   $('#charDetailBody').innerHTML = `
     <div class="char-detail-grid">
       <div class="char-detail-item"><div class="char-detail-label">描述</div><div class="char-detail-value">${escHtml(c.description || '暂无')}</div></div>
+      <div class="char-detail-item"><div class="char-detail-label">外貌</div><div class="char-detail-value">${escHtml(c.appearance || '暂无')}</div></div>
       <div class="char-detail-item"><div class="char-detail-label">性格</div><div class="char-detail-value">${escHtml(c.personality || '暂无')}</div></div>
       <div class="char-detail-item"><div class="char-detail-label">状态</div><div class="char-detail-value">${escHtml(c.status || '暂无')}</div></div>
       <div class="char-detail-item"><div class="char-detail-label">位置</div><div class="char-detail-value">${escHtml(c.location || '暂无')}</div></div>
@@ -446,6 +447,7 @@ async function addCharacter() {
     chars[name] = {
       name,
       description: $('#charDesc').value.trim(),
+      appearance: $('#charAppearance').value.trim(),
       personality: $('#charPersonality').value.trim(),
       status: $('#charStatus').value.trim(),
       location: $('#charLocation').value.trim(),
@@ -812,7 +814,7 @@ function renderStatePanelCharacters(container, current, baseline) {
     html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}</div>`;
 
     const fields = [
-      ['状态', 'status'], ['位置', 'location'], ['描述', 'description']
+      ['状态', 'status'], ['位置', 'location'], ['描述', 'description'], ['外貌', 'appearance']
     ];
     for (const [label, key] of fields) {
       if (!charData[key]) continue;
@@ -842,7 +844,7 @@ function renderStatePanelCharacters(container, current, baseline) {
 }
 
 function _isCharChanged(cur, ml) {
-  const keys = ['status', 'location', 'description', 'personality', 'notes'];
+  const keys = ['status', 'location', 'description', 'appearance', 'personality', 'notes'];
   for (const k of keys) {
     if ((cur[k] || '') !== (ml[k] || '')) return true;
   }
