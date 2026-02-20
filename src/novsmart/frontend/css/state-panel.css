@@ -125,6 +125,10 @@
 .ws-char-card.ws-changed {
   border-left: 3px solid var(--accent);
 }
+.ws-char-card.ws-selected {
+  outline: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
+}
 .ws-char-name {
   font-weight: 600;
   font-size: 0.88rem;
@@ -138,15 +142,20 @@
   font-size: 0.72rem;
   color: var(--text-muted);
   opacity: 0;
-  transition: opacity var(--transition);
+  transition: opacity var(--transition), color var(--transition);
   cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 .ws-char-card:hover .ws-edit-btn,
-.ws-loc-card:hover .ws-edit-btn {
+.ws-loc-card:hover .ws-edit-btn,
+.ws-char-card.ws-selected .ws-edit-btn,
+.ws-loc-card.ws-selected .ws-edit-btn {
   opacity: 1;
 }
 .ws-edit-btn:hover {
   color: var(--accent);
+  background: var(--bg-hover);
 }
 .ws-badge-new {
   font-size: 0.65rem;
@@ -209,6 +218,10 @@
 }
 .ws-loc-card.ws-changed {
   border-left: 3px solid var(--accent);
+}
+.ws-loc-card.ws-selected {
+  outline: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
 }
 .ws-loc-name {
   font-weight: 600;
