@@ -419,12 +419,12 @@ async def regenerate_mainline_summary(session_id: str):
 
 # ────────────────────────────── 导出 ──────────────────────────────────
 
-@app.get("/api/session/{session_id}/export")
-async def export_novel(session_id: str, format: str = "txt"):
-    """导出小说为文件"""
-    filepath = session_manager.export_novel(session_id, format=format)
+@app.get("/api/session/{session_id}/mainline/export")
+async def export_mainline(session_id: str):
+    """导出主线内容为 TXT 文件"""
+    filepath = session_manager.export_mainline(session_id)
     if not filepath:
-        raise HTTPException(status_code=400, detail="导出失败(会话不存在或无历史)")
+        raise HTTPException(status_code=400, detail="导出失败(会话不存在或主线无内容)")
 
     return FileResponse(
         path=filepath,

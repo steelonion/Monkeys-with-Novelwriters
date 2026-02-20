@@ -59,6 +59,7 @@
       <div class="panel-title">
         <i class="icon">📌</i> 文章主线
         <span id="mainlineCount" class="mainline-count"></span>
+        <button class="btn btn-sm btn-ghost" onclick="exportMainline()" title="导出主线为TXT">📥 导出</button>
         <button class="btn btn-sm btn-ghost" onclick="toggleMainlineView()" title="展开/收起主线详情">📋 查看</button>
       </div>
       <div id="mainlineSummaryPreview" class="mainline-summary-preview"></div>
@@ -74,7 +75,6 @@
       <div class="topbar-actions">
         <button class="btn btn-ghost" id="btnUndo" onclick="undoStep()" disabled title="撤销">↩ 撤销</button>
         <button class="btn btn-ghost" id="btnClearHistory" onclick="clearHistory()" disabled title="清理对话历史，保留设定和主线">🧹 清理对话</button>
-        <button class="btn btn-ghost" id="btnExport" onclick="exportNovel()" disabled title="导出">📥 导出</button>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题">🌙</button>
       </div>
     </header>

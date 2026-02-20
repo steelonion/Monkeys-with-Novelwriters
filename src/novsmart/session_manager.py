@@ -441,6 +441,33 @@ class SessionManager:
 
     # ─────────────── 导出为文件 ───────────────
 
+    def export_mainline(self, session_id: str) -> str | None:
+        """将主线内容导出为 TXT 文件，返回文件路径"""
+        session = self.get_session(session_id)
+        if not session or not session.mainline:
+            return None
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_name = session.name.replace("/", "_").replace("\\", "_")
+        filename = f"{safe_name}_主线_{timestamp}.txt"
+        filepath = EXPORTS_DIR / filename
+
+        lines = []
+        ws = session.world_setting
+        lines.append(f"{'='*60}")
+        lines.append(f"  {ws.title or session.name} — 文章主线")
+        lines.append(f"{'='*60}")
+        lines.append(f"导出时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"主线片段数：{len(session.mainline)}")
+        lines.append(f"{'='*60}\n")
+
+        for entry in session.mainline:
+            lines.append(entry.text)
+            lines.append("")
+
+        filepath.write_text("\n".join(lines), encoding="utf-8")
+        return str(filepath)
+
     def export_novel(self, session_id: str, format: str = "txt") -> str | None:
         """将小说片段合集导出为文件，返回文件路径"""
         session = self.get_session(session_id)

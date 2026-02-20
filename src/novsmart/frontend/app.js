@@ -359,7 +359,7 @@ function renderSession(session) {
   $('#inputArea').style.display = '';
   $('#btnUndo').disabled = !session.history || session.history.length === 0;
   $('#btnClearHistory').disabled = !session.history || session.history.length === 0;
-  $('#btnExport').disabled = !session.history || session.history.length === 0;
+  // (export moved to mainline panel)
 
   // 写作配置面板
   const sidebarConfig = session.mainline_session_config || session.session_config;
@@ -387,7 +387,7 @@ function showWelcome() {
   $('#mainlinePanel').style.display = 'none';
   $('#btnUndo').disabled = true;
   $('#btnClearHistory').disabled = true;
-  $('#btnExport').disabled = true;
+  // (export moved to mainline panel)
   currentMainline = [];
   currentMainlineSummary = '';
   $('#statePanel').style.display = 'none';
@@ -723,8 +723,6 @@ async function generate() {
     $('#userPrompt').value = '';
     $('#btnUndo').disabled = false;
     $('#btnClearHistory').disabled = false;
-    $('#btnExport').disabled = false;
-
     showToast(mode === 'adjust' ? '调整完成' : '生成完成');
 
     // 调整完成后自动切回续写模式
@@ -945,20 +943,23 @@ async function clearHistory() {
   } catch (e) { showToast('清理失败: ' + e.message); }
 }
 
-// ─────────── 导出 ───────────
+// ─────────── 导出主线 ───────────
 
-async function exportNovel() {
+async function exportMainline() {
   if (!currentSessionId) return;
+  if (!currentMainline || currentMainline.length === 0) {
+    showToast('主线暂无内容'); return;
+  }
   try {
-    const res = await apiFetch(`/api/session/${currentSessionId}/export?format=txt`);
+    const res = await apiFetch(`/api/session/${currentSessionId}/mainline/export`);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'novel.txt';
+    a.download = 'mainline.txt';
     a.click();
     URL.revokeObjectURL(url);
-    showToast('导出成功');
+    showToast('主线导出成功');
   } catch (e) { showToast('导出失败: ' + e.message); }
 }
 

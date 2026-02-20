@@ -35,3 +35,4 @@ exports/
 # Logs
 *.log
 log/
+*.json
