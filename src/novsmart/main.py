@@ -9,14 +9,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
 
-from models import (
+from .models import (
     GenerateRequest, GenerateResponse, NewSessionRequest,
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
     AddMainlineRequest, UpdateMainlineEntryRequest, ReorderMainlineRequest,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
-from ai_service import ai_service
-from session_manager import session_manager
+from .ai_service import ai_service
+from .session_manager import session_manager
 
 app = FastAPI(title="NovSmart - AI小说写作框架", version="1.0.0")
 
@@ -29,8 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 静态文件 - 前端
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+# 静态文件 - 前端（包内资源）
+FRONTEND_DIR = Path(__file__).parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 

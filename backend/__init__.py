@@ -1,1 +1,0 @@
-# NovSmart Backend Package

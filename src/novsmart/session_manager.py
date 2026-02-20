@@ -8,12 +8,11 @@ import os
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from models import Session, HistoryStep, WorldSetting, SessionConfig, CharacterState, LocationSetting, MainlineEntry
+from .models import Session, HistoryStep, WorldSetting, SessionConfig, CharacterState, LocationSetting, MainlineEntry
 
-# 存储路径
-BASE_DIR = Path(__file__).parent.parent
-SESSIONS_DIR = BASE_DIR / "sessions"
-EXPORTS_DIR = BASE_DIR / "exports"
+# 存储路径（运行时数据，相对于 CWD）
+SESSIONS_DIR = Path.cwd() / "sessions"
+EXPORTS_DIR = Path.cwd() / "exports"
 
 # 确保目录存在
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)

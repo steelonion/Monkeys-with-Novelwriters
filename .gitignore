@@ -34,3 +34,4 @@ exports/
 
 # Logs
 *.log
+log/

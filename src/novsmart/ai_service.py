@@ -9,13 +9,13 @@ import copy
 from datetime import datetime
 from pathlib import Path
 from openai import AsyncOpenAI
-from models import CharacterState, LocationSetting, WorldSetting, SessionConfig, Session, MainlineEntry
+from .models import CharacterState, LocationSetting, WorldSetting, SessionConfig, Session, MainlineEntry
 
-# 配置文件路径
-CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+# 配置文件路径（运行时数据，相对于 CWD）
+CONFIG_PATH = Path.cwd() / "config.json"
 
 # 调试日志
-LOG_DIR = Path(__file__).parent.parent / "log"
+LOG_DIR = Path.cwd() / "log"
 DEBUG_MODE = False
 
 

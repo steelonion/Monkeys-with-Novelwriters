@@ -1,12 +1,8 @@
 """
-NovSmart 启动入口 - 通过 python -m backend 启动
+NovSmart 启动入口 - 通过 python -m novsmart 启动
 """
 import argparse
-import sys
 import os
-
-# 确保 backend 目录在 sys.path 中，使内部模块互相导入不受影响
-sys.path.insert(0, os.path.dirname(__file__))
 
 import uvicorn
 
@@ -19,11 +15,11 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        from ai_service import enable_debug_mode
+        from .ai_service import enable_debug_mode
         enable_debug_mode()
         print("🔍 调试模式已启用，日志将写入 log/ 目录")
 
-    uvicorn.run("main:app", host=args.host, port=args.port, reload=True, app_dir=os.path.dirname(__file__))
+    uvicorn.run("novsmart.main:app", host=args.host, port=args.port, reload=True)
 
 
 if __name__ == "__main__":
