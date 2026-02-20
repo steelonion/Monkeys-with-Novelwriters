@@ -8,7 +8,7 @@ import re
 import copy
 from pathlib import Path
 from openai import AsyncOpenAI
-from models import CharacterState, LocationSetting, WorldSetting, SessionConfig, Session
+from models import CharacterState, LocationSetting, WorldSetting, SessionConfig, Session, MainlineEntry
 
 # 配置文件路径
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
@@ -34,7 +34,10 @@ SYSTEM_PROMPT_TEMPLATE = """\
 ## 当前角色状态
 {characters_block}
 
-## 之前的剧情摘要(最近片段)
+## 文章主线概述
+{mainline_summary}
+
+## 最近对话片段
 {recent_story}
 
 ## 重要写作规则
@@ -89,6 +92,20 @@ SYSTEM_PROMPT_TEMPLATE = """\
 - JSON 必须合法，可以被直接解析。
 """
 
+
+MAINLINE_SUMMARY_PROMPT = """\
+你是一个小说剧情概述助手。以下是一部小说的“文章主线”内容，包含用户已确认的正式文本片段。
+
+请你对这些内容进行简洁概述，作为后续写作的上文提示。概述应该：
+1. 包含主要剧情线的进展
+2. 记录关键事件和转折点
+3. 反映角色关系的变化
+4. 保持简洁，但不遗漏重要信息
+5. 按时间线/剧情发展顺序组织
+6. 字数控制在 300-800 字之间
+
+只输出概述文本，不要输出额外的解释或标记。
+"""
 
 PARSE_TEXT_PROMPT = """\
 你是一个文本解析助手。用户会提供一段关于小说设定的自由文本，其中可能包含世界观、角色设定、剧情简介、写作风格等信息。
@@ -212,6 +229,14 @@ def build_system_prompt(session: Session) -> str:
     if ws.extra_settings:
         extra = "\n".join(f"- {k}：{v}" for k, v in ws.extra_settings.items())
 
+    # 主线概述
+    mainline_summary = session.mainline_summary.strip() if session.mainline_summary else ""
+    if not mainline_summary:
+        if session.mainline:
+            mainline_summary = "（主线已有内容但概述尚未生成）"
+        else:
+            mainline_summary = "（暂无主线内容，这是故事的开端）"
+
     return SYSTEM_PROMPT_TEMPLATE.format(
         title=ws.title or "未定",
         genre=ws.genre or "未定",
@@ -222,6 +247,7 @@ def build_system_prompt(session: Session) -> str:
         extra_settings=extra,
         locations_block=_build_locations_block(session.locations),
         characters_block=_build_characters_block(session.characters),
+        mainline_summary=mainline_summary,
         recent_story=_build_recent_story(session.history),
     )
 
@@ -405,6 +431,48 @@ class AIService:
 
         return story_text, updated_chars, updated_world, updated_session_config, updated_locations
 
+
+    async def generate_mainline_summary(
+        self,
+        mainline_entries: list[MainlineEntry],
+        world_setting: WorldSetting | None = None,
+    ) -> str:
+        """
+        调用 LLM 生成主线内容的概述。
+        只在主线内容发生变化时调用。
+        """
+        if not self.is_configured:
+            raise RuntimeError("AI 服务未配置，请先设置 API Key")
+
+        if not mainline_entries:
+            return ""
+
+        # 构建主线文本
+        mainline_text_parts = []
+        for i, entry in enumerate(mainline_entries, 1):
+            mainline_text_parts.append(f"--- 第 {i} 段 ---\n{entry.text}")
+        mainline_text = "\n\n".join(mainline_text_parts)
+
+        # 添加世界观上下文
+        context = ""
+        if world_setting:
+            context = f"\n小说标题：{world_setting.title or '未定'}\n类型：{world_setting.genre or '未定'}\n\n"
+
+        user_content = f"{context}以下是文章主线内容：\n\n{mainline_text}"
+
+        messages = [
+            {"role": "system", "content": MAINLINE_SUMMARY_PROMPT},
+            {"role": "user", "content": user_content},
+        ]
+
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=0.3,
+            max_tokens=1500,
+        )
+
+        return (response.choices[0].message.content or "").strip()
 
     async def parse_text_to_session(
         self,

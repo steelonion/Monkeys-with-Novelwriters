@@ -5,9 +5,10 @@
 from __future__ import annotations
 import json
 import os
+import hashlib
 from datetime import datetime
 from pathlib import Path
-from models import Session, HistoryStep, WorldSetting, SessionConfig, CharacterState, LocationSetting
+from models import Session, HistoryStep, WorldSetting, SessionConfig, CharacterState, LocationSetting, MainlineEntry
 
 # 存储路径
 BASE_DIR = Path(__file__).parent.parent
@@ -182,6 +183,135 @@ class SessionManager:
             fp.unlink()
             return True
         return False
+
+    # ─────────────── 文章主线操作 ───────────────
+
+    @staticmethod
+    def _compute_mainline_hash(mainline: list[MainlineEntry]) -> str:
+        """计算主线内容的哈希，用于判断是否需要重新生成概述"""
+        content = "|".join(e.text for e in mainline)
+        return hashlib.md5(content.encode()).hexdigest()
+
+    def mainline_needs_summary_update(self, session: Session) -> bool:
+        """检查主线是否有变化，需要重新生成概述"""
+        if not session.mainline:
+            return False
+        current_hash = self._compute_mainline_hash(session.mainline)
+        return current_hash != session.mainline_summary_hash
+
+    def add_mainline_entry(
+        self,
+        session_id: str,
+        text: str,
+        source_step_id: str = "",
+        note: str = "",
+        insert_index: int | None = None,
+    ) -> MainlineEntry:
+        """添加一个条目到主线"""
+        session = self.get_session(session_id)
+        if not session:
+            raise ValueError(f"会话 {session_id} 不存在")
+
+        entry = MainlineEntry(
+            text=text,
+            source_step_id=source_step_id,
+            note=note,
+            order=len(session.mainline),
+        )
+
+        if insert_index is not None and 0 <= insert_index <= len(session.mainline):
+            session.mainline.insert(insert_index, entry)
+        else:
+            session.mainline.append(entry)
+
+        # 重新计算所有条目的 order
+        for i, e in enumerate(session.mainline):
+            e.order = i
+
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return entry
+
+    def remove_mainline_entry(self, session_id: str, entry_id: str) -> bool:
+        """从主线中移除一个条目"""
+        session = self.get_session(session_id)
+        if not session:
+            return False
+
+        original_len = len(session.mainline)
+        session.mainline = [e for e in session.mainline if e.entry_id != entry_id]
+
+        if len(session.mainline) == original_len:
+            return False  # 没找到该条目
+
+        # 重新计算 order
+        for i, e in enumerate(session.mainline):
+            e.order = i
+
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return True
+
+    def update_mainline_entry(
+        self,
+        session_id: str,
+        entry_id: str,
+        text: str | None = None,
+        note: str | None = None,
+    ) -> MainlineEntry | None:
+        """更新主线条目的内容或备注"""
+        session = self.get_session(session_id)
+        if not session:
+            return None
+
+        for entry in session.mainline:
+            if entry.entry_id == entry_id:
+                if text is not None:
+                    entry.text = text
+                if note is not None:
+                    entry.note = note
+                session.updated_at = datetime.now().isoformat()
+                self._save_to_disk(session)
+                return entry
+
+        return None
+
+    def reorder_mainline(self, session_id: str, entry_ids: list[str]) -> bool:
+        """重新排序主线条目"""
+        session = self.get_session(session_id)
+        if not session:
+            return False
+
+        # 构建 ID -> Entry 的映射
+        entry_map = {e.entry_id: e for e in session.mainline}
+
+        # 验证所有 ID 都存在
+        if set(entry_ids) != set(entry_map.keys()):
+            return False
+
+        session.mainline = [entry_map[eid] for eid in entry_ids]
+        for i, e in enumerate(session.mainline):
+            e.order = i
+
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return True
+
+    def update_mainline_summary(
+        self,
+        session_id: str,
+        summary: str,
+    ) -> bool:
+        """更新主线概述和哈希"""
+        session = self.get_session(session_id)
+        if not session:
+            return False
+
+        session.mainline_summary = summary
+        session.mainline_summary_hash = self._compute_mainline_hash(session.mainline)
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return True
 
     # ─────────────── 导出为文件 ───────────────
 

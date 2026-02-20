@@ -68,6 +68,18 @@ class HistoryStep(BaseModel):
     locations_snapshot: dict[str, LocationSetting] = Field(default_factory=dict, description="生成后地点快照")
 
 
+# ────────────────────────────── 文章主线 ──────────────────────────────
+
+class MainlineEntry(BaseModel):
+    """文章主线中的一个条目"""
+    entry_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:8])
+    text: str = Field(..., description="选入主线的文本内容")
+    source_step_id: str = Field(default="", description="来源历史步骤ID（可选）")
+    order: int = Field(default=0, description="在主线中的排序")
+    added_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+    note: str = Field(default="", description="用户对该条目的备注")
+
+
 # ────────────────────────────── 会话 ──────────────────────────────────
 
 class Session(BaseModel):
@@ -85,6 +97,11 @@ class Session(BaseModel):
 
     # 历史记录(支持撤销)
     history: list[HistoryStep] = Field(default_factory=list, description="生成历史")
+
+    # 文章主线
+    mainline: list[MainlineEntry] = Field(default_factory=list, description="文章主线条目列表")
+    mainline_summary: str = Field(default="", description="主线内容的LLM概述，作为AI上文提示")
+    mainline_summary_hash: str = Field(default="", description="生成概述时主线内容的哈希，用于判断是否需要重新生成")
 
 
 # ────────────────────────────── API 请求/响应 ─────────────────────────
@@ -129,6 +146,25 @@ class UpdateSettingRequest(BaseModel):
 class ParseTextRequest(BaseModel):
     """从文本解析会话设定请求"""
     text: str = Field(..., description="用户提供的自由文本，包含小说设定信息")
+
+
+class AddMainlineRequest(BaseModel):
+    """添加文本到主线"""
+    text: str = Field(..., description="选入主线的文本")
+    source_step_id: str = Field(default="", description="来源步骤ID")
+    note: str = Field(default="", description="备注")
+    insert_index: Optional[int] = Field(default=None, description="插入位置，None表示追加到末尾")
+
+
+class UpdateMainlineEntryRequest(BaseModel):
+    """更新主线条目"""
+    text: Optional[str] = None
+    note: Optional[str] = None
+
+
+class ReorderMainlineRequest(BaseModel):
+    """重新排序主线"""
+    entry_ids: list[str] = Field(..., description="按新顺序排列的条目ID列表")
 
 
 class APIConfigRequest(BaseModel):

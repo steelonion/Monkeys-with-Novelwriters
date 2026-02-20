@@ -80,6 +80,16 @@
       </div>
       <div id="locationsList" class="locations-list"></div>
     </div>
+
+    <!-- 文章主线面板 -->
+    <div class="panel" id="mainlinePanel" style="display:none">
+      <div class="panel-title">
+        <i class="icon">📌</i> 文章主线
+        <span id="mainlineCount" class="mainline-count"></span>
+        <button class="btn btn-sm btn-ghost" onclick="toggleMainlineView()" title="展开/收起主线详情">📋 查看</button>
+      </div>
+      <div id="mainlineSummaryPreview" class="mainline-summary-preview"></div>
+    </div>
   </aside>
 
   <!-- ═══════════════════ 主内容区 ═══════════════════ -->
@@ -248,6 +258,38 @@
         <button class="btn btn-icon" onclick="closeModal('locDetailModal')">✕</button>
       </div>
       <div class="modal-body" id="locDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 文章主线 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="mainlineModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>📌 文章主线</h3>
+        <button class="btn btn-icon" onclick="closeModal('mainlineModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- 主线概述 -->
+        <div class="mainline-summary-section">
+          <div class="mainline-section-header">
+            <h4>📝 主线概述</h4>
+            <button class="btn btn-sm btn-ghost" id="btnRegenerateSummary" onclick="regenerateMainlineSummary()">🔄 重新生成</button>
+          </div>
+          <div id="mainlineSummaryContent" class="mainline-summary-content">
+            <p class="empty-hint">暂无概述</p>
+          </div>
+        </div>
+
+        <!-- 主线条目列表 -->
+        <div class="mainline-entries-section">
+          <div class="mainline-section-header">
+            <h4>📖 主线内容 (<span id="mainlineEntryCount">0</span> 段)</h4>
+          </div>
+          <div id="mainlineEntries" class="mainline-entries">
+            <p class="empty-hint">暂无主线内容，在生成的文本上点击「📌 收入主线」添加</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

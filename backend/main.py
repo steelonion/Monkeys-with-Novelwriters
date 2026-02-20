@@ -12,6 +12,7 @@ from pathlib import Path
 from models import (
     GenerateRequest, GenerateResponse, NewSessionRequest,
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
+    AddMainlineRequest, UpdateMainlineEntryRequest, ReorderMainlineRequest,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
 from ai_service import ai_service
@@ -219,6 +220,164 @@ async def undo(session_id: str):
 
     session = session_manager.get_session(session_id)
     return session.model_dump()
+
+
+# ────────────────────────────── 文章主线 ────────────────────────────────
+
+@app.get("/api/session/{session_id}/mainline")
+async def get_mainline(session_id: str):
+    """获取主线内容"""
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return {
+        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline_summary": session.mainline_summary,
+        "needs_summary_update": session_manager.mainline_needs_summary_update(session),
+    }
+
+
+@app.post("/api/session/{session_id}/mainline/add")
+async def add_to_mainline(session_id: str, req: AddMainlineRequest):
+    """添加文本到主线"""
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    try:
+        entry = session_manager.add_mainline_entry(
+            session_id=session_id,
+            text=req.text,
+            source_step_id=req.source_step_id,
+            note=req.note,
+            insert_index=req.insert_index,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # 检查是否需要重新生成概述
+    session = session_manager.get_session(session_id)
+    needs_update = session_manager.mainline_needs_summary_update(session)
+
+    # 自动重新生成概述
+    summary = session.mainline_summary
+    if needs_update and ai_service.is_configured:
+        try:
+            summary = await ai_service.generate_mainline_summary(
+                session.mainline, session.world_setting
+            )
+            session_manager.update_mainline_summary(session_id, summary)
+        except Exception:
+            pass  # 概述生成失败不影响主流程
+
+    return {
+        "entry": entry.model_dump(),
+        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline_summary": summary,
+    }
+
+
+@app.delete("/api/session/{session_id}/mainline/{entry_id}")
+async def remove_from_mainline(session_id: str, entry_id: str):
+    """从主线中移除条目"""
+    ok = session_manager.remove_mainline_entry(session_id, entry_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="条目不存在")
+
+    session = session_manager.get_session(session_id)
+
+    # 自动重新生成概述
+    summary = session.mainline_summary
+    if session.mainline and session_manager.mainline_needs_summary_update(session) and ai_service.is_configured:
+        try:
+            summary = await ai_service.generate_mainline_summary(
+                session.mainline, session.world_setting
+            )
+            session_manager.update_mainline_summary(session_id, summary)
+        except Exception:
+            pass
+    elif not session.mainline:
+        # 主线清空了，清除概述
+        session_manager.update_mainline_summary(session_id, "")
+        summary = ""
+
+    return {
+        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline_summary": summary,
+    }
+
+
+@app.put("/api/session/{session_id}/mainline/{entry_id}")
+async def update_mainline_entry(session_id: str, entry_id: str, req: UpdateMainlineEntryRequest):
+    """更新主线条目"""
+    entry = session_manager.update_mainline_entry(
+        session_id=session_id,
+        entry_id=entry_id,
+        text=req.text,
+        note=req.note,
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="条目不存在")
+
+    session = session_manager.get_session(session_id)
+
+    # 如果文本有变化，自动重新生成概述
+    summary = session.mainline_summary
+    if req.text is not None and session_manager.mainline_needs_summary_update(session) and ai_service.is_configured:
+        try:
+            summary = await ai_service.generate_mainline_summary(
+                session.mainline, session.world_setting
+            )
+            session_manager.update_mainline_summary(session_id, summary)
+        except Exception:
+            pass
+
+    return {
+        "entry": entry.model_dump(),
+        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline_summary": summary,
+    }
+
+
+@app.put("/api/session/{session_id}/mainline/reorder")
+async def reorder_mainline(session_id: str, req: ReorderMainlineRequest):
+    """重新排序主线条目"""
+    ok = session_manager.reorder_mainline(session_id, req.entry_ids)
+    if not ok:
+        raise HTTPException(status_code=400, detail="重新排序失败，请检查条目ID")
+
+    session = session_manager.get_session(session_id)
+    return {
+        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline_summary": session.mainline_summary,
+    }
+
+
+@app.post("/api/session/{session_id}/mainline/regenerate-summary")
+async def regenerate_mainline_summary(session_id: str):
+    """手动重新生成主线概述"""
+    if not ai_service.is_configured:
+        raise HTTPException(status_code=400, detail="请先配置 API Key")
+
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    if not session.mainline:
+        raise HTTPException(status_code=400, detail="主线无内容")
+
+    try:
+        summary = await ai_service.generate_mainline_summary(
+            session.mainline, session.world_setting
+        )
+        session_manager.update_mainline_summary(session_id, summary)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成概述失败：{str(e)}")
+
+    return {
+        "mainline_summary": summary,
+        "mainline": [e.model_dump() for e in session.mainline],
+    }
 
 
 # ────────────────────────────── 导出 ──────────────────────────────────

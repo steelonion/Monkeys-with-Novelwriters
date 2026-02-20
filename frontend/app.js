@@ -7,6 +7,8 @@ const API = '';  // 同源，留空即可
 let currentSessionId = null;
 let sessions = [];
 let sessionModalMode = 'create'; // 'create' or 'edit'
+let currentMainline = [];       // 当前主线数据
+let currentMainlineSummary = ''; // 当前主线概述
 
 // ─────────── 工具函数 ───────────
 
@@ -366,6 +368,12 @@ function renderSession(session) {
   $('#locationsPanel').style.display = '';
   renderLocations(session.locations || {});
 
+  // 主线面板
+  $('#mainlinePanel').style.display = '';
+  currentMainline = session.mainline || [];
+  currentMainlineSummary = session.mainline_summary || '';
+  renderMainlinePanel();
+
   // 故事区
   renderStory(session.history || []);
 }
@@ -377,8 +385,11 @@ function showWelcome() {
   $('#worldPanel').style.display = 'none';
   $('#sessionConfigPanel').style.display = 'none';
   $('#locationsPanel').style.display = 'none';
+  $('#mainlinePanel').style.display = 'none';
   $('#btnUndo').disabled = true;
   $('#btnExport').disabled = true;
+  currentMainline = [];
+  currentMainlineSummary = '';
   $('#storyArea').innerHTML = `
     <div class="story-welcome">
       <div class="welcome-icon">✨</div>
@@ -582,9 +593,12 @@ function renderStory(history) {
     return;
   }
   area.innerHTML = history.map((step, i) => `
-    <div class="story-block">
+    <div class="story-block" data-step-id="${step.step_id || ''}">
       ${step.user_prompt ? `<div class="story-prompt">💡 ${escHtml(step.user_prompt)}</div>` : ''}
       <div class="story-text">${escHtml(step.generated_text)}</div>
+      <div class="story-actions">
+        <button class="btn-add-mainline" onclick="addToMainline('${step.step_id || ''}', this)" title="将此段落收入文章主线">📌 收入主线</button>
+      </div>
       ${i < history.length - 1 ? '<div class="story-divider"></div>' : ''}
     </div>
   `).join('');
@@ -623,9 +637,13 @@ async function generate() {
 
     const block = document.createElement('div');
     block.className = 'story-block';
+    block.dataset.stepId = data.step_id || '';
     block.innerHTML = `
       <div class="story-prompt">💡 ${escHtml(prompt)}</div>
       <div class="story-text">${escHtml(data.story_text)}</div>
+      <div class="story-actions">
+        <button class="btn-add-mainline" onclick="addToMainline('${data.step_id || ''}', this)" title="将此段落收入文章主线">📌 收入主线</button>
+      </div>
     `;
     // 在之前的块后加分割线
     if (area.lastElementChild) {
@@ -682,6 +700,166 @@ async function exportNovel() {
     URL.revokeObjectURL(url);
     showToast('导出成功');
   } catch (e) { showToast('导出失败: ' + e.message); }
+}
+
+// ─────────── 文章主线 ───────────
+
+function renderMainlinePanel() {
+  const count = currentMainline.length;
+  const countEl = $('#mainlineCount');
+  countEl.textContent = count > 0 ? count : '';
+  countEl.style.display = count > 0 ? '' : 'none';
+
+  const preview = $('#mainlineSummaryPreview');
+  if (currentMainlineSummary) {
+    preview.textContent = currentMainlineSummary.length > 120
+      ? currentMainlineSummary.slice(0, 120) + '...'
+      : currentMainlineSummary;
+  } else if (count > 0) {
+    preview.textContent = `已有 ${count} 段主线内容，概述待生成`;
+  } else {
+    preview.textContent = '';
+  }
+}
+
+function toggleMainlineView() {
+  if (!currentSessionId) { showToast('请先选择一个会话'); return; }
+  renderMainlineModal();
+  openModal('mainlineModal');
+}
+
+function renderMainlineModal() {
+  // 概述区域
+  const summaryEl = $('#mainlineSummaryContent');
+  summaryEl.textContent = currentMainlineSummary || '暂无概述';
+
+  // 条目列表
+  const countEl = $('#mainlineEntryCount');
+  countEl.textContent = currentMainline.length;
+
+  const container = $('#mainlineEntries');
+  if (!currentMainline.length) {
+    container.innerHTML = '<p class="empty-hint">暂无主线内容，在生成的文本上点击「📌 收入主线」添加</p>';
+    return;
+  }
+
+  container.innerHTML = currentMainline.map((entry, i) => `
+    <div class="mainline-entry" data-entry-id="${entry.entry_id}">
+      <div class="mainline-entry-header">
+        <span class="mainline-entry-order">第 ${i + 1} 段</span>
+        <div class="mainline-entry-actions">
+          ${i > 0 ? `<button class="btn-move" onclick="moveMainlineEntry('${entry.entry_id}', -1)" title="上移">↑</button>` : ''}
+          ${i < currentMainline.length - 1 ? `<button class="btn-move" onclick="moveMainlineEntry('${entry.entry_id}', 1)" title="下移">↓</button>` : ''}
+          <button onclick="removeMainlineEntry('${entry.entry_id}')" title="移除">✕</button>
+        </div>
+      </div>
+      <div class="mainline-entry-text">${escHtml(entry.text)}</div>
+      ${entry.note ? `<div class="mainline-entry-note">📝 ${escHtml(entry.note)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function addToMainline(stepId, btnEl) {
+  if (!currentSessionId) { showToast('请先选择一个会话'); return; }
+
+  // 获取该 story-block 中的文本
+  const block = btnEl.closest('.story-block');
+  const textEl = block.querySelector('.story-text');
+  const text = textEl.textContent.trim();
+  if (!text) { showToast('没有可收入的文本'); return; }
+
+  btnEl.disabled = true;
+  btnEl.textContent = '📌 收入中...';
+
+  try {
+    const data = await apiJson(`/api/session/${currentSessionId}/mainline/add`, {
+      method: 'POST',
+      body: JSON.stringify({
+        text,
+        source_step_id: stepId,
+      }),
+    });
+
+    currentMainline = data.mainline || [];
+    currentMainlineSummary = data.mainline_summary || '';
+    renderMainlinePanel();
+
+    btnEl.textContent = '✅ 已收入';
+    btnEl.classList.add('added');
+    showToast('已收入主线');
+  } catch (e) {
+    showToast('收入主线失败: ' + e.message);
+    btnEl.disabled = false;
+    btnEl.textContent = '📌 收入主线';
+  }
+}
+
+async function removeMainlineEntry(entryId) {
+  if (!currentSessionId) return;
+  if (!confirm('确定从主线中移除此段落？')) return;
+
+  try {
+    const data = await apiJson(`/api/session/${currentSessionId}/mainline/${entryId}`, {
+      method: 'DELETE',
+    });
+    currentMainline = data.mainline || [];
+    currentMainlineSummary = data.mainline_summary || '';
+    renderMainlinePanel();
+    renderMainlineModal();
+    showToast('已从主线移除');
+  } catch (e) {
+    showToast('移除失败: ' + e.message);
+  }
+}
+
+async function moveMainlineEntry(entryId, direction) {
+  if (!currentSessionId) return;
+
+  const idx = currentMainline.findIndex(e => e.entry_id === entryId);
+  if (idx < 0) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= currentMainline.length) return;
+
+  // 交换位置
+  const ids = currentMainline.map(e => e.entry_id);
+  [ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
+
+  try {
+    const data = await apiJson(`/api/session/${currentSessionId}/mainline/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ entry_ids: ids }),
+    });
+    currentMainline = data.mainline || [];
+    currentMainlineSummary = data.mainline_summary || '';
+    renderMainlinePanel();
+    renderMainlineModal();
+  } catch (e) {
+    showToast('排序失败: ' + e.message);
+  }
+}
+
+async function regenerateMainlineSummary() {
+  if (!currentSessionId) return;
+
+  const btn = $('#btnRegenerateSummary');
+  btn.disabled = true;
+  btn.textContent = '⏳ 生成中...';
+
+  try {
+    const data = await apiJson(`/api/session/${currentSessionId}/mainline/regenerate-summary`, {
+      method: 'POST',
+    });
+    currentMainlineSummary = data.mainline_summary || '';
+    currentMainline = data.mainline || currentMainline;
+    renderMainlinePanel();
+    renderMainlineModal();
+    showToast('概述已更新');
+  } catch (e) {
+    showToast('生成概述失败: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 重新生成';
+  }
 }
 
 // ─────────── 工具 ───────────
