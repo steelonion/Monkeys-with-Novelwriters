@@ -275,6 +275,10 @@ function renderSession(session) {
   $('#worldPanel').style.display = '';
   renderWorldInfo(session.world_setting);
 
+  // 地点面板
+  $('#locationsPanel').style.display = '';
+  renderLocations(session.locations || {});
+
   // 故事区
   renderStory(session.history || []);
 }
@@ -284,6 +288,7 @@ function showWelcome() {
   $('#inputArea').style.display = 'none';
   $('#charactersPanel').style.display = 'none';
   $('#worldPanel').style.display = 'none';
+  $('#locationsPanel').style.display = 'none';
   $('#btnUndo').disabled = true;
   $('#btnExport').disabled = true;
   $('#storyArea').innerHTML = `
@@ -395,6 +400,75 @@ function renderWorldInfo(ws) {
   $('#worldInfo').innerHTML = html || '<p class="empty-hint">暂无设定</p>';
 }
 
+// ─────────── 地点 ───────────
+
+function renderLocations(locs) {
+  const container = $('#locationsList');
+  const names = Object.keys(locs);
+  if (!names.length) {
+    container.innerHTML = '<p class="empty-hint">暂无地点</p>';
+    return;
+  }
+  container.innerHTML = names.map(name => {
+    const loc = locs[name];
+    return `
+      <div class="char-card" onclick='showLocDetail(${JSON.stringify(loc).replace(/'/g, "&#39;")})'>
+        <div class="char-name">📍 ${escHtml(loc.name)}</div>
+        <div class="char-status">${escHtml(loc.description || '暂无描述')}</div>
+        ${loc.parent ? `<div class="char-location">↑ ${escHtml(loc.parent)}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function showLocDetail(loc) {
+  $('#locDetailTitle').textContent = loc.name;
+  const features = loc.features && loc.features.length ? loc.features.join('、') : '无';
+  const connected = loc.connected_to && loc.connected_to.length ? loc.connected_to.join('、') : '无';
+
+  $('#locDetailBody').innerHTML = `
+    <div class="char-detail-grid">
+      <div class="char-detail-item full"><div class="char-detail-label">描述</div><div class="char-detail-value">${escHtml(loc.description || '暂无')}</div></div>
+      <div class="char-detail-item"><div class="char-detail-label">父级地点</div><div class="char-detail-value">${escHtml(loc.parent || '暂无')}</div></div>
+      <div class="char-detail-item"><div class="char-detail-label">相连地点</div><div class="char-detail-value">${escHtml(connected)}</div></div>
+      <div class="char-detail-item full"><div class="char-detail-label">地点特征</div><div class="char-detail-value">${escHtml(features)}</div></div>
+      <div class="char-detail-item full"><div class="char-detail-label">备注</div><div class="char-detail-value">${escHtml(loc.notes || '暂无')}</div></div>
+    </div>`;
+  openModal('locDetailModal');
+}
+
+function openAddLocationModal() {
+  if (!currentSessionId) { showToast('请先选择一个会话'); return; }
+  openModal('addLocationModal');
+}
+
+async function addLocation() {
+  const name = $('#locName').value.trim();
+  if (!name) { showToast('请输入地点名称'); return; }
+
+  try {
+    const session = await apiJson(`/api/session/${currentSessionId}`);
+    const locs = session.locations || {};
+    locs[name] = {
+      name,
+      description: $('#locDesc').value.trim(),
+      parent: $('#locParent').value.trim(),
+      features: $('#locFeatures').value.trim().split('\n').filter(Boolean),
+      connected_to: $('#locConnected').value.trim().split('\n').filter(Boolean),
+      notes: $('#locNotes').value.trim(),
+    };
+
+    const updated = await apiJson('/api/session/setting', {
+      method: 'PUT',
+      body: JSON.stringify({ session_id: currentSessionId, locations: locs }),
+    });
+
+    closeModal('addLocationModal');
+    renderLocations(updated.locations || {});
+    showToast(`地点「${name}」已添加`);
+    ['#locName','#locDesc','#locParent','#locFeatures','#locConnected','#locNotes'].forEach(s => $(s).value = '');
+  } catch (e) { showToast('添加失败: ' + e.message); }
+}
+
 // ─────────── 故事渲染 ───────────
 
 function renderStory(history) {
@@ -466,6 +540,7 @@ async function generate() {
     // 更新侧边栏
     renderCharacters(data.characters || {});
     renderWorldInfo(data.world_setting);
+    renderLocations(data.locations || {});
 
     // 清空输入
     $('#userPrompt').value = '';

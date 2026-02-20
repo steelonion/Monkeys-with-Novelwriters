@@ -8,7 +8,7 @@ import re
 import copy
 from pathlib import Path
 from openai import AsyncOpenAI
-from models import CharacterState, WorldSetting, Session
+from models import CharacterState, LocationSetting, WorldSetting, Session
 
 # 配置文件路径
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
@@ -27,6 +27,9 @@ SYSTEM_PROMPT_TEMPLATE = """\
 - 当前剧情弧：{current_arc}
 - 写作风格要求：{custom_instructions}
 {extra_settings}
+
+## 当前地点设定
+{locations_block}
 
 ## 当前角色状态
 {characters_block}
@@ -65,6 +68,16 @@ SYSTEM_PROMPT_TEMPLATE = """\
   "world_update": {{
     "current_arc": "更新后的当前剧情弧（如有变化）",
     "extra_settings": {{"新发现的设定key": "value"}}
+  }},
+  "locations_update": {{
+    "地点名": {{
+      "name": "地点名",
+      "description": "地点描述",
+      "parent": "父级地点",
+      "features": ["特征1"],
+      "connected_to": ["相连地点1"],
+      "notes": "备注"
+    }}
   }}
 }}
 ```
@@ -72,6 +85,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
 注意：
 - 只需要列出**状态发生变化**的角色，未变化的角色不用列出。
 - world_update 只列出有变化的字段，没变化可以留空对象。
+- locations_update 只列出新出现或发生变化的地点。
 - JSON 必须合法，可以被直接解析。
 """
 
@@ -92,6 +106,16 @@ PARSE_TEXT_PROMPT = """\
     "current_arc": "当前主要剧情弧",
     "custom_instructions": "写作风格/要求",
     "extra_settings": {{"其他设定key": "value"}}
+  }},
+  "locations": {{
+    "地点名": {{
+      "name": "地点名",
+      "description": "地点描述",
+      "parent": "父级地点",
+      "features": ["特征1"],
+      "connected_to": ["相连地点1"],
+      "notes": "备注"
+    }}
   }},
   "characters": {{
     "角色名": {{
@@ -140,6 +164,28 @@ def _build_characters_block(characters: dict[str, CharacterState]) -> str:
     return "\n".join(lines)
 
 
+def _build_locations_block(locations: dict[str, LocationSetting]) -> str:
+    """构建地点设定文本块"""
+    if not locations:
+        return "（暂无地点信息）"
+
+    lines = []
+    for name, loc in locations.items():
+        lines.append(f"### {name}")
+        if loc.description:
+            lines.append(f"- 描述：{loc.description}")
+        if loc.parent:
+            lines.append(f"- 所属：{loc.parent}")
+        if loc.features:
+            lines.append(f"- 特征：{'、'.join(loc.features)}")
+        if loc.connected_to:
+            lines.append(f"- 相连地点：{'、'.join(loc.connected_to)}")
+        if loc.notes:
+            lines.append(f"- 备注：{loc.notes}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def _build_recent_story(history, max_steps: int = 3) -> str:
     """从历史记录提取最近的故事片段作为上文"""
     if not history:
@@ -169,6 +215,7 @@ def build_system_prompt(session: Session) -> str:
         current_arc=ws.current_arc or "暂无",
         custom_instructions=ws.custom_instructions or "无特殊要求",
         extra_settings=extra,
+        locations_block=_build_locations_block(session.locations),
         characters_block=_build_characters_block(session.characters),
         recent_story=_build_recent_story(session.history),
     )
@@ -183,11 +230,15 @@ def parse_ai_response(
     raw_text: str,
     existing_characters: dict[str, CharacterState],
     existing_world: WorldSetting,
-) -> tuple[str, dict[str, CharacterState], WorldSetting]:
+    existing_locations: dict[str, LocationSetting] | None = None,
+) -> tuple[str, dict[str, CharacterState], WorldSetting, dict[str, LocationSetting]]:
     """
     解析 AI 返回的文本，分离小说正文和状态更新 JSON。
-    返回: (story_text, updated_characters, updated_world)
+    返回: (story_text, updated_characters, updated_world, updated_locations)
     """
+    if existing_locations is None:
+        existing_locations = {}
+
     # 分离正文和 JSON 部分
     if SEPARATOR in raw_text:
         story_text, json_part = raw_text.split(SEPARATOR, 1)
@@ -201,9 +252,10 @@ def parse_ai_response(
     # 深拷贝现有状态
     updated_characters = {k: v.model_copy(deep=True) for k, v in existing_characters.items()}
     updated_world = existing_world.model_copy(deep=True)
+    updated_locations = {k: v.model_copy(deep=True) for k, v in existing_locations.items()}
 
     if not json_part.strip():
-        return story_text, updated_characters, updated_world
+        return story_text, updated_characters, updated_world, updated_locations
 
     # 提取 JSON（可能被 ```json ``` 包裹）
     json_str = json_part.strip()
@@ -220,7 +272,7 @@ def parse_ai_response(
         update_data = json.loads(json_str)
     except json.JSONDecodeError:
         # JSON 解析失败，返回原始状态
-        return story_text, updated_characters, updated_world
+        return story_text, updated_characters, updated_world, updated_locations
 
     # 更新角色状态
     if "characters" in update_data and isinstance(update_data["characters"], dict):
@@ -247,7 +299,22 @@ def parse_ai_response(
         if wu.get("extra_settings") and isinstance(wu["extra_settings"], dict):
             updated_world.extra_settings.update(wu["extra_settings"])
 
-    return story_text, updated_characters, updated_world
+    # 更新地点设定
+    if "locations_update" in update_data and isinstance(update_data["locations_update"], dict):
+        for loc_name, loc_data in update_data["locations_update"].items():
+            if isinstance(loc_data, dict):
+                if loc_name in updated_locations:
+                    existing_loc = updated_locations[loc_name]
+                    for field_name in LocationSetting.model_fields:
+                        if field_name in loc_data and loc_data[field_name]:
+                            setattr(existing_loc, field_name, loc_data[field_name])
+                else:
+                    try:
+                        updated_locations[loc_name] = LocationSetting(**loc_data)
+                    except Exception:
+                        updated_locations[loc_name] = LocationSetting(name=loc_name)
+
+    return story_text, updated_characters, updated_world, updated_locations
 
 
 # ────────────────────────────── AI 调用 ──────────────────────────────
@@ -299,10 +366,10 @@ class AIService:
         user_prompt: str,
         temperature: float = 0.85,
         max_tokens: int = 2000,
-    ) -> tuple[str, dict[str, CharacterState], WorldSetting]:
+    ) -> tuple[str, dict[str, CharacterState], WorldSetting, dict[str, LocationSetting]]:
         """
         调用 AI 生成小说片段并解析状态更新。
-        返回: (story_text, updated_characters, updated_world)
+        返回: (story_text, updated_characters, updated_world, updated_locations)
         """
         if not self.is_configured:
             raise RuntimeError("AI 服务未配置，请先设置 API Key")
@@ -323,21 +390,21 @@ class AIService:
 
         raw_text = response.choices[0].message.content or ""
 
-        story_text, updated_chars, updated_world = parse_ai_response(
-            raw_text, session.characters, session.world_setting
+        story_text, updated_chars, updated_world, updated_locations = parse_ai_response(
+            raw_text, session.characters, session.world_setting, session.locations
         )
 
-        return story_text, updated_chars, updated_world
+        return story_text, updated_chars, updated_world, updated_locations
 
 
     async def parse_text_to_session(
         self,
         raw_text: str,
         temperature: float = 0.3,
-    ) -> tuple[str, WorldSetting, dict[str, CharacterState]]:
+    ) -> tuple[str, WorldSetting, dict[str, CharacterState], dict[str, LocationSetting]]:
         """
         解析用户提供的自由文本，通过 LLM 提取结构化的会话设定。
-        返回: (session_name, world_setting, characters)
+        返回: (session_name, world_setting, characters, locations)
         """
         if not self.is_configured:
             raise RuntimeError("AI 服务未配置，请先设置 API Key")
@@ -406,7 +473,25 @@ class AIService:
 
         session_name = data.get("session_name", ws_data.get("title", "未命名会话"))
 
-        return session_name, world_setting, characters
+        # 构建 Locations
+        locations: dict[str, LocationSetting] = {}
+        locs_data = data.get("locations", {})
+        if isinstance(locs_data, dict):
+            for loc_name, loc_info in locs_data.items():
+                if isinstance(loc_info, dict):
+                    try:
+                        locations[loc_name] = LocationSetting(
+                            name=loc_info.get("name", loc_name),
+                            description=loc_info.get("description", ""),
+                            parent=loc_info.get("parent", ""),
+                            features=loc_info.get("features", []),
+                            connected_to=loc_info.get("connected_to", []),
+                            notes=loc_info.get("notes", ""),
+                        )
+                    except Exception:
+                        locations[loc_name] = LocationSetting(name=loc_name)
+
+        return session_name, world_setting, characters, locations
 
 
 # 全局单例

@@ -7,7 +7,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from models import Session, HistoryStep, WorldSetting, CharacterState
+from models import Session, HistoryStep, WorldSetting, CharacterState, LocationSetting
 
 # 存储路径
 BASE_DIR = Path(__file__).parent.parent
@@ -33,11 +33,13 @@ class SessionManager:
         name: str = "未命名会话",
         world_setting: WorldSetting | None = None,
         characters: dict[str, CharacterState] | None = None,
+        locations: dict[str, LocationSetting] | None = None,
     ) -> Session:
         session = Session(
             name=name,
             world_setting=world_setting or WorldSetting(),
             characters=characters or {},
+            locations=locations or {},
         )
         self._active_sessions[session.session_id] = session
         self._save_to_disk(session)
@@ -60,6 +62,7 @@ class SessionManager:
         generated_text: str,
         characters: dict[str, CharacterState],
         world_setting: WorldSetting,
+        locations: dict[str, LocationSetting] | None = None,
     ) -> HistoryStep:
         session = self.get_session(session_id)
         if not session:
@@ -70,11 +73,14 @@ class SessionManager:
             generated_text=generated_text,
             characters_snapshot={k: v.model_copy(deep=True) for k, v in characters.items()},
             world_snapshot=world_setting.model_copy(deep=True),
+            locations_snapshot={k: v.model_copy(deep=True) for k, v in (locations or {}).items()},
         )
 
         session.history.append(step)
         session.characters = characters
         session.world_setting = world_setting
+        if locations is not None:
+            session.locations = locations
         session.updated_at = datetime.now().isoformat()
 
         self._save_to_disk(session)
@@ -98,6 +104,10 @@ class SessionManager:
                 for k, v in last_step.characters_snapshot.items()
             }
             session.world_setting = last_step.world_snapshot.model_copy(deep=True)
+            session.locations = {
+                k: v.model_copy(deep=True)
+                for k, v in last_step.locations_snapshot.items()
+            }
         else:
             # 没有历史了，可以选择保留初始设定或者清空
             # 这里保留当前设定不变（角色和世界观回到初始状态比较复杂）
@@ -114,6 +124,7 @@ class SessionManager:
         session_id: str,
         world_setting: WorldSetting | None = None,
         characters: dict[str, CharacterState] | None = None,
+        locations: dict[str, LocationSetting] | None = None,
     ) -> Session | None:
         session = self.get_session(session_id)
         if not session:
@@ -123,6 +134,8 @@ class SessionManager:
             session.world_setting = world_setting
         if characters is not None:
             session.characters = characters
+        if locations is not None:
+            session.locations = locations
 
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)

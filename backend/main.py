@@ -12,7 +12,7 @@ from pathlib import Path
 from models import (
     GenerateRequest, GenerateResponse, NewSessionRequest,
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
-    WorldSetting, CharacterState,
+    WorldSetting, CharacterState, LocationSetting,
 )
 from ai_service import ai_service
 from session_manager import session_manager
@@ -63,6 +63,7 @@ async def create_session(req: NewSessionRequest):
         name=req.name,
         world_setting=req.world_setting,
         characters=req.characters,
+        locations=req.locations,
     )
     return session.model_dump()
 
@@ -103,7 +104,7 @@ async def parse_text_to_session(req: ParseTextRequest):
         raise HTTPException(status_code=400, detail="请输入文本内容")
 
     try:
-        session_name, world_setting, characters = await ai_service.parse_text_to_session(req.text)
+        session_name, world_setting, characters, locations = await ai_service.parse_text_to_session(req.text)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -114,6 +115,7 @@ async def parse_text_to_session(req: ParseTextRequest):
         name=session_name,
         world_setting=world_setting,
         characters=characters,
+        locations=locations,
     )
     return session.model_dump()
 
@@ -127,6 +129,7 @@ async def update_setting(req: UpdateSettingRequest):
         session_id=req.session_id,
         world_setting=req.world_setting,
         characters=req.characters,
+        locations=req.locations,
     )
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
@@ -146,7 +149,7 @@ async def generate(req: GenerateRequest):
         raise HTTPException(status_code=404, detail="会话不存在")
 
     try:
-        story_text, updated_chars, updated_world = await ai_service.generate(
+        story_text, updated_chars, updated_world, updated_locations = await ai_service.generate(
             session=session,
             user_prompt=req.user_prompt,
             temperature=req.temperature,
@@ -162,12 +165,14 @@ async def generate(req: GenerateRequest):
         generated_text=story_text,
         characters=updated_chars,
         world_setting=updated_world,
+        locations=updated_locations,
     )
 
     return GenerateResponse(
         story_text=story_text,
         characters=updated_chars,
         world_setting=updated_world,
+        locations=updated_locations,
         step_id=step.step_id,
     ).model_dump()
 

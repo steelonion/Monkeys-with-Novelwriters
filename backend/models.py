@@ -23,6 +23,18 @@ class CharacterState(BaseModel):
     notes: str = Field(default="", description="其他备注信息")
 
 
+# ────────────────────────────── 地点设定 ──────────────────────────────
+
+class LocationSetting(BaseModel):
+    """单个地点的设定"""
+    name: str = Field(..., description="地点名称")
+    description: str = Field(default="", description="地点描述")
+    parent: str = Field(default="", description="父级地点（如所属城市/大陆）")
+    features: list[str] = Field(default_factory=list, description="地点特征/特殊规则")
+    connected_to: list[str] = Field(default_factory=list, description="相连的其他地点")
+    notes: str = Field(default="", description="备注")
+
+
 # ────────────────────────────── 世界设定 ──────────────────────────────
 
 class WorldSetting(BaseModel):
@@ -46,6 +58,7 @@ class HistoryStep(BaseModel):
     generated_text: str = Field(default="", description="AI生成的小说片段")
     characters_snapshot: dict[str, CharacterState] = Field(default_factory=dict, description="生成后角色状态快照")
     world_snapshot: WorldSetting = Field(default_factory=WorldSetting, description="生成后世界设定快照")
+    locations_snapshot: dict[str, LocationSetting] = Field(default_factory=dict, description="生成后地点快照")
 
 
 # ────────────────────────────── 会话 ──────────────────────────────────
@@ -60,6 +73,7 @@ class Session(BaseModel):
     # 当前状态
     world_setting: WorldSetting = Field(default_factory=WorldSetting)
     characters: dict[str, CharacterState] = Field(default_factory=dict, description="角色名 -> 角色状态")
+    locations: dict[str, LocationSetting] = Field(default_factory=dict, description="地点名 -> 地点设定")
 
     # 历史记录(支持撤销)
     history: list[HistoryStep] = Field(default_factory=list, description="生成历史")
@@ -80,6 +94,7 @@ class GenerateResponse(BaseModel):
     story_text: str = Field(..., description="生成的小说片段")
     characters: dict[str, CharacterState] = Field(default_factory=dict)
     world_setting: WorldSetting = Field(default_factory=WorldSetting)
+    locations: dict[str, LocationSetting] = Field(default_factory=dict)
     step_id: str = ""
 
 
@@ -88,6 +103,7 @@ class NewSessionRequest(BaseModel):
     name: str = "未命名会话"
     world_setting: Optional[WorldSetting] = None
     characters: Optional[dict[str, CharacterState]] = None
+    locations: Optional[dict[str, LocationSetting]] = None
 
 
 class UpdateSettingRequest(BaseModel):
@@ -95,6 +111,7 @@ class UpdateSettingRequest(BaseModel):
     session_id: str
     world_setting: Optional[WorldSetting] = None
     characters: Optional[dict[str, CharacterState]] = None
+    locations: Optional[dict[str, LocationSetting]] = None
 
 
 class ParseTextRequest(BaseModel):

@@ -59,6 +59,15 @@
       <div class="panel-title"><i class="icon">🌍</i> 世界设定</div>
       <div id="worldInfo" class="world-info"></div>
     </div>
+
+    <!-- 地点设定面板 -->
+    <div class="panel" id="locationsPanel" style="display:none">
+      <div class="panel-title">
+        <i class="icon">📍</i> 地点设定
+        <button class="btn btn-sm btn-ghost" onclick="openAddLocationModal()">+ 添加</button>
+      </div>
+      <div id="locationsList" class="locations-list"></div>
+    </div>
   </aside>
 
   <!-- ═══════════════════ 主内容区 ═══════════════════ -->
@@ -183,6 +192,45 @@
         <button class="btn btn-icon" onclick="closeModal('charDetailModal')">✕</button>
       </div>
       <div class="modal-body" id="charDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 添加地点 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="addLocationModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>添加地点</h3>
+        <button class="btn btn-icon" onclick="closeModal('addLocationModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>地点名称 <input type="text" id="locName" placeholder="地点名" /></label>
+        <label>描述 <textarea id="locDesc" rows="2" placeholder="地点描述"></textarea></label>
+        <label>父级地点 <input type="text" id="locParent" placeholder="所属的大地点（如大陆/城市）" /></label>
+        <label>地点特征（每行一条）
+          <textarea id="locFeatures" rows="2" placeholder="如：灵气浓厚\n常年积雪"></textarea>
+        </label>
+        <label>相连地点（每行一个）
+          <textarea id="locConnected" rows="2" placeholder="如：青云山\n天机城"></textarea>
+        </label>
+        <label>备注
+          <textarea id="locNotes" rows="2" placeholder="其他备注"></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('addLocationModal')">取消</button>
+        <button class="btn btn-primary" onclick="addLocation()">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 地点详情 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="locDetailModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="locDetailTitle">地点详情</h3>
+        <button class="btn btn-icon" onclick="closeModal('locDetailModal')">✕</button>
+      </div>
+      <div class="modal-body" id="locDetailBody"></div>
     </div>
   </div>
 
