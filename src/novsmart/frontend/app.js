@@ -12,6 +12,7 @@ let currentMainlineSummary = ''; // 当前主线概述
 let _taskPollTimer = null;       // 任务轮询定时器
 let _activeTasks = 0;            // 当前活跃的 AI 任务数
 let _currentSession = null;      // 完整的当前会话数据
+let _generateMode = 'continue';  // 生成模式: 'continue' | 'adjust'
 
 // ─────────── 工具函数 ───────────
 
@@ -612,12 +613,40 @@ function renderStory(history) {
   requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
 }
 
+// ─────────── 生成模式切换 ───────────
+
+function switchMode(mode) {
+  _generateMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(mode === 'continue' ? 'modeContinue' : 'modeAdjust').classList.add('active');
+
+  const textarea = $('#userPrompt');
+  const btn = $('#btnGenerate');
+  if (mode === 'adjust') {
+    textarea.placeholder = '描述需要调整的内容，例如：减少对话，增加环境描写...';
+    btn.querySelector('.btn-text').textContent = '✎ 调整';
+  } else {
+    textarea.placeholder = '描述接下来的剧情走向，例如：主角进入了神秘的密林深处...';
+    btn.querySelector('.btn-text').textContent = '✦ 生成';
+  }
+}
+
 // ─────────── 生成 ───────────
 
 async function generate() {
   if (!currentSessionId) { showToast('请先选择一个会话'); return; }
   const prompt = $('#userPrompt').value.trim();
   if (!prompt) { showToast('请输入剧情提示'); return; }
+
+  const mode = _generateMode;
+
+  // 调整模式需要有历史
+  if (mode === 'adjust') {
+    const area = $('#storyArea');
+    if (!area.querySelector('.story-block')) {
+      showToast('没有可调整的内容，请先续写'); return;
+    }
+  }
 
   const btn = $('#btnGenerate');
   btn.classList.add('loading');
@@ -633,6 +662,7 @@ async function generate() {
       user_prompt: prompt,
       temperature: parseFloat($('#temperature').value),
       suggested_length: parseInt($('#suggestedLength').value),
+      mode: mode,
     };
     const data = await apiJson('/api/generate', {
       method: 'POST',
@@ -642,27 +672,42 @@ async function generate() {
     // 移除 loading 动画
     removeStoryLoading();
 
-    // 追加到故事区
     const area = $('#storyArea');
     // 清空欢迎界面
     if (area.querySelector('.story-welcome')) area.innerHTML = '';
 
-    const block = document.createElement('div');
-    block.className = 'story-block';
-    block.innerHTML = `
-      <div class="story-prompt">💡 ${escHtml(prompt)}</div>
-      <div class="story-text">${escHtml(data.story_text)}</div>
-      <div class="story-actions">
-        <button class="btn-add-mainline" onclick="addToMainline(this)" title="将此段落收入文章主线">📌 收入主线</button>
-      </div>
-    `;
-    // 在之前的块后加分割线
-    if (area.lastElementChild) {
-      const divider = document.createElement('div');
-      divider.className = 'story-divider';
-      area.appendChild(divider);
+    if (mode === 'adjust') {
+      // 调整模式：替换最后一个故事块
+      const blocks = area.querySelectorAll('.story-block');
+      const lastBlock = blocks[blocks.length - 1];
+      if (lastBlock) {
+        lastBlock.innerHTML = `
+          <div class="story-prompt">✎ ${escHtml(prompt)}</div>
+          <div class="story-text">${escHtml(data.story_text)}</div>
+          <div class="story-actions">
+            <button class="btn-add-mainline" onclick="addToMainline(this)" title="将此段落收入文章主线">📌 收入主线</button>
+          </div>
+        `;
+      }
+    } else {
+      // 续写模式：追加新故事块
+      const block = document.createElement('div');
+      block.className = 'story-block';
+      block.innerHTML = `
+        <div class="story-prompt">💡 ${escHtml(prompt)}</div>
+        <div class="story-text">${escHtml(data.story_text)}</div>
+        <div class="story-actions">
+          <button class="btn-add-mainline" onclick="addToMainline(this)" title="将此段落收入文章主线">📌 收入主线</button>
+        </div>
+      `;
+      // 在之前的块后加分割线
+      if (area.lastElementChild) {
+        const divider = document.createElement('div');
+        divider.className = 'story-divider';
+        area.appendChild(divider);
+      }
+      area.appendChild(block);
     }
-    area.appendChild(block);
     requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
 
     // 更新状态面板
@@ -680,7 +725,12 @@ async function generate() {
     $('#btnClearHistory').disabled = false;
     $('#btnExport').disabled = false;
 
-    showToast('生成完成');
+    showToast(mode === 'adjust' ? '调整完成' : '生成完成');
+
+    // 调整完成后自动切回续写模式
+    if (mode === 'adjust') {
+      switchMode('continue');
+    }
   } catch (e) {
     removeStoryLoading();
     showToast('生成失败: ' + e.message);

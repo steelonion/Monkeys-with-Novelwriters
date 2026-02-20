@@ -265,14 +265,18 @@ def _build_locations_block(locations: dict[str, LocationSetting]) -> str:
 
 
 def _build_recent_story(history, max_steps: int = 3) -> str:
-    """从历史记录提取最近的故事片段作为上文"""
+    """从历史记录提取最近的故事片段作为上文（包含用户指令和AI输出的完整对话）"""
     if not history:
         return "（这是故事的开端，暂无前文）"
 
     recent = history[-max_steps:]
     parts = []
     for step in recent:
-        parts.append(step.generated_text)
+        segment = ""
+        if step.user_prompt:
+            segment += f"[用户指令] {step.user_prompt}\n\n"
+        segment += f"[AI续写]\n{step.generated_text}"
+        parts.append(segment)
     return "\n\n---\n\n".join(parts)
 
 
@@ -479,9 +483,11 @@ class AIService:
         user_prompt: str,
         temperature: float = 0.85,
         suggested_length: int = 1000,
+        mode: str = "continue",
     ) -> tuple[str, dict[str, CharacterState], WorldSetting, SessionConfig, dict[str, LocationSetting]]:
         """
         调用 AI 生成小说片段并解析状态更新。
+        mode: "continue" = 续写模式, "adjust" = 调整模式（修改上次输出）
         返回: (story_text, updated_characters, updated_world, updated_session_config, updated_locations)
         """
         if not self.is_configured:
@@ -489,10 +495,22 @@ class AIService:
 
         system_prompt = build_system_prompt(session, suggested_length=suggested_length)
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"请根据以下提示续写小说片段：\n\n{user_prompt}"},
-        ]
+        if mode == "adjust" and session.history:
+            last_step = session.history[-1]
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": (
+                    f"以下是你上次输出的小说片段：\n\n{last_step.generated_text}\n\n"
+                    f"---\n\n"
+                    f"请根据以下要求，在保持大致剧情走向不变的前提下，重新输出一个修改后的完整片段（不是在上面的片段后面续写，而是替换它）。\n\n"
+                    f"调整要求：{user_prompt}"
+                )},
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"请根据以下提示续写小说片段：\n\n{user_prompt}"},
+            ]
 
         global _active_tasks
         _active_tasks += 1

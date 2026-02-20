@@ -128,6 +128,7 @@ class GenerateRequest(BaseModel):
     user_prompt: str = Field(..., description="用户输入的下一段剧情提示")
     temperature: float = Field(default=0.85, ge=0.0, le=2.0)
     suggested_length: int = Field(default=1000, ge=100, le=8000, description="建议的片段字数（柔性限制）")
+    mode: str = Field(default="continue", description="生成模式: continue=续写, adjust=调整上次输出")
 
 
 class GenerateResponse(BaseModel):

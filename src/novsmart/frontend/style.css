@@ -326,6 +326,44 @@ details.panel[open] > summary::after { transform: rotate(90deg); }
   max-width: 860px;
   margin: 0 auto;
 }
+
+/* 模式切换 */
+.mode-switcher {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  width: fit-content;
+}
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.mode-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 4px var(--accent-glow);
+}
+.mode-btn svg {
+  flex-shrink: 0;
+}
+
 .input-wrapper textarea {
   width: 100%;
   background: var(--bg-input);

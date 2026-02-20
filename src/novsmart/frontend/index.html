@@ -91,6 +91,16 @@
     <!-- 输入区 -->
     <section class="input-area" id="inputArea" style="display:none">
       <div class="input-wrapper">
+        <div class="mode-switcher">
+          <button class="mode-btn active" id="modeContinue" onclick="switchMode('continue')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            续写
+          </button>
+          <button class="mode-btn" id="modeAdjust" onclick="switchMode('adjust')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            调整
+          </button>
+        </div>
         <textarea id="userPrompt" rows="3" placeholder="描述接下来的剧情走向，例如：主角进入了神秘的密林深处..."></textarea>
         <div class="input-controls">
           <div class="param-group">

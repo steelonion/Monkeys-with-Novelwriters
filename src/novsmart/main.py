@@ -186,26 +186,43 @@ async def generate(req: GenerateRequest):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
+    mode = req.mode or "continue"
+
+    if mode == "adjust" and not session.history:
+        raise HTTPException(status_code=400, detail="没有可调整的历史内容")
+
     try:
         story_text, updated_chars, updated_world, updated_session_config, updated_locations = await ai_service.generate(
             session=session,
             user_prompt=req.user_prompt,
             temperature=req.temperature,
             suggested_length=req.suggested_length,
+            mode=mode,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成失败：{str(e)}")
 
-    # 记录到历史
-    step = session_manager.add_step(
-        session_id=req.session_id,
-        user_prompt=req.user_prompt,
-        generated_text=story_text,
-        characters=updated_chars,
-        world_setting=updated_world,
-        session_config=updated_session_config,
-        locations=updated_locations,
-    )
+    # 记录到历史：调整模式替换最后一步，续写模式追加新步
+    if mode == "adjust":
+        step = session_manager.replace_last_step(
+            session_id=req.session_id,
+            user_prompt=req.user_prompt,
+            generated_text=story_text,
+            characters=updated_chars,
+            world_setting=updated_world,
+            session_config=updated_session_config,
+            locations=updated_locations,
+        )
+    else:
+        step = session_manager.add_step(
+            session_id=req.session_id,
+            user_prompt=req.user_prompt,
+            generated_text=story_text,
+            characters=updated_chars,
+            world_setting=updated_world,
+            session_config=updated_session_config,
+            locations=updated_locations,
+        )
 
     return GenerateResponse(
         story_text=story_text,
