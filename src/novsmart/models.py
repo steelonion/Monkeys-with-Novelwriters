@@ -16,6 +16,7 @@ class CharacterState(BaseModel):
     name: str = Field(..., description="角色名称")
     description: str = Field(default="", description="角色基础描述")
     appearance: str = Field(default="", description="外貌描述")
+    outfit: str = Field(default="", description="当前着装")
     personality: str = Field(default="", description="性格特点")
     status: str = Field(default="", description="当前状态(情绪、身体状况等)")
     location: str = Field(default="", description="当前所在位置")

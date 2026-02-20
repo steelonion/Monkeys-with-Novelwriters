@@ -21,6 +21,7 @@ function showCharDetail(c) {
     <div class="char-detail-grid">
       <div class="char-detail-item"><div class="char-detail-label">描述</div><div class="char-detail-value">${escHtml(c.description || '暂无')}</div></div>
       <div class="char-detail-item"><div class="char-detail-label">外貌</div><div class="char-detail-value">${escHtml(c.appearance || '暂无')}</div></div>
+      <div class="char-detail-item"><div class="char-detail-label">着装</div><div class="char-detail-value">${escHtml(c.outfit || '暂无')}</div></div>
       <div class="char-detail-item"><div class="char-detail-label">性格</div><div class="char-detail-value">${escHtml(c.personality || '暂无')}</div></div>
       <div class="char-detail-item"><div class="char-detail-label">状态</div><div class="char-detail-value">${escHtml(c.status || '暂无')}</div></div>
       <div class="char-detail-item"><div class="char-detail-label">位置</div><div class="char-detail-value">${escHtml(c.location || '暂无')}</div></div>
@@ -48,6 +49,7 @@ async function addCharacter() {
       name,
       description: $('#charDesc').value.trim(),
       appearance: $('#charAppearance').value.trim(),
+      outfit: $('#charOutfit').value.trim(),
       personality: $('#charPersonality').value.trim(),
       status: $('#charStatus').value.trim(),
       location: $('#charLocation').value.trim(),
@@ -68,7 +70,7 @@ async function addCharacter() {
       renderWorkspace(_currentSession);
     }
     showToast(`角色「${name}」已添加`);
-    ['#charName','#charDesc','#charPersonality','#charStatus','#charLocation','#charNotes'].forEach(s => $(s).value = '');
+    ['#charName','#charDesc','#charAppearance','#charOutfit','#charPersonality','#charStatus','#charLocation','#charNotes'].forEach(s => $(s).value = '');
   } catch (e) { showToast('添加失败: ' + e.message); }
 }
 
@@ -88,6 +90,7 @@ function openEditCharState(charName, target) {
   $('#editCharStateName').value = char ? char.name : '';
   $('#editCharStateDesc').value = char ? (char.description || '') : '';
   $('#editCharStateAppearance').value = char ? (char.appearance || '') : '';
+  $('#editCharStateOutfit').value = char ? (char.outfit || '') : '';
   $('#editCharStatePersonality').value = char ? (char.personality || '') : '';
   $('#editCharStateStatus').value = char ? (char.status || '') : '';
   $('#editCharStateLocation').value = char ? (char.location || '') : '';
@@ -183,6 +186,7 @@ async function saveCharState() {
     name: newName,
     description: $('#editCharStateDesc').value.trim(),
     appearance: $('#editCharStateAppearance').value.trim(),
+    outfit: $('#editCharStateOutfit').value.trim(),
     personality: $('#editCharStatePersonality').value.trim(),
     status: $('#editCharStateStatus').value.trim(),
     location: $('#editCharStateLocation').value.trim(),

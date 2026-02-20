@@ -80,7 +80,7 @@ function renderStatePanelCharacters(container, current, baseline, target) {
     html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}<span class="ws-edit-btn" title="编辑" onclick="event.stopPropagation(); openEditCharState(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">✏</span></div>`;
 
     const fields = [
-      ['状态', 'status'], ['位置', 'location'], ['描述', 'description'], ['外貌', 'appearance']
+      ['状态', 'status'], ['位置', 'location'], ['描述', 'description'], ['外貌', 'appearance'], ['着装', 'outfit']
     ];
     for (const [label, key] of fields) {
       if (!charData[key]) continue;
@@ -110,7 +110,7 @@ function renderStatePanelCharacters(container, current, baseline, target) {
 }
 
 function _isCharChanged(cur, ml) {
-  const keys = ['status', 'location', 'description', 'appearance', 'personality', 'notes'];
+  const keys = ['status', 'location', 'description', 'appearance', 'outfit', 'personality', 'notes'];
   for (const k of keys) {
     if ((cur[k] || '') !== (ml[k] || '')) return true;
   }
