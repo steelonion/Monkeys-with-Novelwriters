@@ -227,42 +227,29 @@ async function smartParseAndFill() {
   const btn = $('#btnSmartParse');
   const statusEl = $('#smartParseStatus');
   btn.disabled = true;
-  btn.textContent = '解析中...';
+  btn.textContent = '解析并创建中...';
   statusEl.className = 'status-badge';
   statusEl.style.display = 'none';
 
   try {
-    const data = await apiJson('/api/parse-text', {
+    // 直接调用解析+创建会话接口，避免表单填充丢失角色和地点
+    const session = await apiJson('/api/session/parse-text', {
       method: 'POST',
       body: JSON.stringify({ text }),
     });
 
-    // 填充表单字段
-    fillFormFromParsedData(data);
-
-    // 切换到手动模式供用户审查
-    switchCreateMode('manual');
-    showToast('解析完成，请检查并修改后创建');
+    closeModal('newSessionModal');
+    showToast('会话创建成功');
+    await loadSessions();
+    selectSession(session.session_id);
   } catch (e) {
     statusEl.className = 'status-badge error';
     statusEl.textContent = '解析失败: ' + e.message;
     statusEl.style.display = 'block';
   } finally {
     btn.disabled = false;
-    btn.textContent = '✦ 智能解析';
+    btn.textContent = '✦ 智能解析并创建';
   }
-}
-
-function fillFormFromParsedData(data) {
-  const ws = data.world_setting || {};
-  const sc = data.session_config || {};
-  $('#newSessionName').value = data.session_name || '';
-  $('#newTitle').value = ws.title || '';
-  $('#newGenre').value = ws.genre || '';
-  $('#newBackground').value = ws.background || '';
-  $('#newRules').value = (ws.rules || []).join('\n');
-  $('#newArc').value = sc.current_arc || ws.current_arc || '';
-  $('#newInstructions').value = sc.custom_instructions || ws.custom_instructions || '';
 }
 
 function clearSessionFormFields() {
