@@ -222,6 +222,19 @@ async def undo(session_id: str):
     return session.model_dump()
 
 
+# ────────────────────────────── 清理对话历史 ──────────────────────────────
+
+@app.post("/api/session/{session_id}/clear-history")
+async def clear_history(session_id: str):
+    """清理对话历史，保留设定和主线"""
+    ok = session_manager.clear_history(session_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    session = session_manager.get_session(session_id)
+    return session.model_dump()
+
+
 # ────────────────────────────── 文章主线 ────────────────────────────────
 
 @app.get("/api/session/{session_id}/mainline")
@@ -248,7 +261,6 @@ async def add_to_mainline(session_id: str, req: AddMainlineRequest):
         entry = session_manager.add_mainline_entry(
             session_id=session_id,
             text=req.text,
-            source_step_id=req.source_step_id,
             note=req.note,
             insert_index=req.insert_index,
         )
@@ -411,8 +423,3 @@ async def serve_frontend():
 async def on_startup():
     """启动时自动加载已保存的配置"""
     ai_service.load_config()
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

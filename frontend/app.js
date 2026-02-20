@@ -337,6 +337,7 @@ function renderSession(session) {
   $('#sessionTitle').textContent = session.name || '未命名会话';
   $('#inputArea').style.display = '';
   $('#btnUndo').disabled = !session.history || session.history.length === 0;
+  $('#btnClearHistory').disabled = !session.history || session.history.length === 0;
   $('#btnExport').disabled = !session.history || session.history.length === 0;
 
   // 角色面板
@@ -374,6 +375,7 @@ function showWelcome() {
   $('#locationsPanel').style.display = 'none';
   $('#mainlinePanel').style.display = 'none';
   $('#btnUndo').disabled = true;
+  $('#btnClearHistory').disabled = true;
   $('#btnExport').disabled = true;
   currentMainline = [];
   currentMainlineSummary = '';
@@ -580,11 +582,11 @@ function renderStory(history) {
     return;
   }
   area.innerHTML = history.map((step, i) => `
-    <div class="story-block" data-step-id="${step.step_id || ''}">
+    <div class="story-block">
       ${step.user_prompt ? `<div class="story-prompt">💡 ${escHtml(step.user_prompt)}</div>` : ''}
       <div class="story-text">${escHtml(step.generated_text)}</div>
       <div class="story-actions">
-        <button class="btn-add-mainline" onclick="addToMainline('${step.step_id || ''}', this)" title="将此段落收入文章主线">📌 收入主线</button>
+        <button class="btn-add-mainline" onclick="addToMainline(this)" title="将此段落收入文章主线">📌 收入主线</button>
       </div>
       ${i < history.length - 1 ? '<div class="story-divider"></div>' : ''}
     </div>
@@ -624,12 +626,11 @@ async function generate() {
 
     const block = document.createElement('div');
     block.className = 'story-block';
-    block.dataset.stepId = data.step_id || '';
     block.innerHTML = `
       <div class="story-prompt">💡 ${escHtml(prompt)}</div>
       <div class="story-text">${escHtml(data.story_text)}</div>
       <div class="story-actions">
-        <button class="btn-add-mainline" onclick="addToMainline('${data.step_id || ''}', this)" title="将此段落收入文章主线">📌 收入主线</button>
+        <button class="btn-add-mainline" onclick="addToMainline(this)" title="将此段落收入文章主线">📌 收入主线</button>
       </div>
     `;
     // 在之前的块后加分割线
@@ -650,6 +651,7 @@ async function generate() {
     // 清空输入
     $('#userPrompt').value = '';
     $('#btnUndo').disabled = false;
+    $('#btnClearHistory').disabled = false;
     $('#btnExport').disabled = false;
 
     showToast('生成完成');
@@ -670,6 +672,18 @@ async function undoStep() {
     renderSession(session);
     showToast('已撤销');
   } catch (e) { showToast('撤销失败: ' + e.message); }
+}
+
+// ─────────── 清理对话历史 ───────────
+
+async function clearHistory() {
+  if (!currentSessionId) return;
+  if (!confirm('确定清理当前对话历史？\n\n• 世界观、角色、地点设定保留\n• 文章主线保留\n• 对话历史将被清空')) return;
+  try {
+    const session = await apiJson(`/api/session/${currentSessionId}/clear-history`, { method: 'POST' });
+    renderSession(session);
+    showToast('对话历史已清理');
+  } catch (e) { showToast('清理失败: ' + e.message); }
 }
 
 // ─────────── 导出 ───────────
@@ -746,7 +760,7 @@ function renderMainlineModal() {
   `).join('');
 }
 
-async function addToMainline(stepId, btnEl) {
+async function addToMainline(btnEl) {
   if (!currentSessionId) { showToast('请先选择一个会话'); return; }
 
   // 获取该 story-block 中的文本
@@ -763,7 +777,6 @@ async function addToMainline(stepId, btnEl) {
       method: 'POST',
       body: JSON.stringify({
         text,
-        source_step_id: stepId,
       }),
     });
 

@@ -6,12 +6,45 @@ from __future__ import annotations
 import json
 import re
 import copy
+from datetime import datetime
 from pathlib import Path
 from openai import AsyncOpenAI
 from models import CharacterState, LocationSetting, WorldSetting, SessionConfig, Session, MainlineEntry
 
 # 配置文件路径
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+
+# 调试日志
+LOG_DIR = Path(__file__).parent.parent / "log"
+DEBUG_MODE = False
+
+
+def enable_debug_mode():
+    """启用调试模式，在 log/ 目录下记录原始请求和返回"""
+    global DEBUG_MODE
+    DEBUG_MODE = True
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _debug_log(label: str, messages: list[dict], response_text: str, **extra):
+    """将一次 LLM 请求/响应写入日志文件"""
+    if not DEBUG_MODE:
+        return
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    filename = f"{ts}_{label}.json"
+    log_data = {
+        "timestamp": datetime.now().isoformat(),
+        "label": label,
+        "request_messages": messages,
+        "response_text": response_text,
+        **extra,
+    }
+    try:
+        (LOG_DIR / filename).write_text(
+            json.dumps(log_data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass
 
 
 # ────────────────────────────── 提示词模板 ──────────────────────────────
@@ -425,6 +458,9 @@ class AIService:
 
         raw_text = response.choices[0].message.content or ""
 
+        _debug_log("generate", messages, raw_text,
+                   model=self.model, temperature=temperature, max_tokens=max_tokens)
+
         story_text, updated_chars, updated_world, updated_session_config, updated_locations = parse_ai_response(
             raw_text, session.characters, session.world_setting, session.session_config, session.locations
         )
@@ -472,7 +508,12 @@ class AIService:
             max_tokens=1500,
         )
 
-        return (response.choices[0].message.content or "").strip()
+        result = (response.choices[0].message.content or "").strip()
+
+        _debug_log("mainline_summary", messages, result,
+                   model=self.model, temperature=0.3, max_tokens=1500)
+
+        return result
 
     async def parse_text_to_session(
         self,
@@ -500,6 +541,9 @@ class AIService:
         )
 
         raw_response = response.choices[0].message.content or "{}"
+
+        _debug_log("parse_text", messages, raw_response,
+                   model=self.model, temperature=temperature, max_tokens=4000)
 
         # 提取 JSON
         json_str = raw_response.strip()

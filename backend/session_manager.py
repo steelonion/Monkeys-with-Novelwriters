@@ -125,6 +125,19 @@ class SessionManager:
         self._save_to_disk(session)
         return True
 
+    # ─────────────── 清理对话历史 ───────────────
+
+    def clear_history(self, session_id: str) -> bool:
+        """清理对话历史记录，保留角色/世界/地点等设定不变"""
+        session = self.get_session(session_id)
+        if not session:
+            return False
+
+        session.history = []
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return True
+
     # ─────────────── 更新设定 ───────────────
 
     def update_setting(
@@ -203,7 +216,6 @@ class SessionManager:
         self,
         session_id: str,
         text: str,
-        source_step_id: str = "",
         note: str = "",
         insert_index: int | None = None,
     ) -> MainlineEntry:
@@ -214,7 +226,6 @@ class SessionManager:
 
         entry = MainlineEntry(
             text=text,
-            source_step_id=source_step_id,
             note=note,
             order=len(session.mainline),
         )

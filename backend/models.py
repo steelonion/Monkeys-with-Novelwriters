@@ -74,7 +74,6 @@ class MainlineEntry(BaseModel):
     """文章主线中的一个条目"""
     entry_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:8])
     text: str = Field(..., description="选入主线的文本内容")
-    source_step_id: str = Field(default="", description="来源历史步骤ID（可选）")
     order: int = Field(default=0, description="在主线中的排序")
     added_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     note: str = Field(default="", description="用户对该条目的备注")
@@ -151,7 +150,6 @@ class ParseTextRequest(BaseModel):
 class AddMainlineRequest(BaseModel):
     """添加文本到主线"""
     text: str = Field(..., description="选入主线的文本")
-    source_step_id: str = Field(default="", description="来源步骤ID")
     note: str = Field(default="", description="备注")
     insert_index: Optional[int] = Field(default=None, description="插入位置，None表示追加到末尾")
 
