@@ -1,0 +1,156 @@
+/* ═══════════════════════════════════════════════════════
+   NovSmart - 文章主线样式
+   ═══════════════════════════════════════════════════════ */
+
+.mainline-count {
+  font-size: 0.72rem;
+  background: var(--accent);
+  color: #fff;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.mainline-summary-preview {
+  padding: 0 20px 14px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-height: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mainline-summary-preview:empty { display: none; }
+
+/* 收入主线按钮 - 在故事块上 */
+.story-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.story-block:hover .story-actions {
+  opacity: 1;
+}
+.btn-add-mainline {
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.btn-add-mainline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+.btn-add-mainline.added {
+  border-color: var(--success);
+  color: var(--success);
+  cursor: default;
+}
+
+/* 主线 Modal 内部 */
+.mainline-summary-section {
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.mainline-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.mainline-section-header h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.mainline-summary-content {
+  font-size: 0.88rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  background: var(--bg-input);
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mainline-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mainline-entry {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  position: relative;
+  transition: border-color var(--transition);
+}
+.mainline-entry:hover {
+  border-color: var(--border-light);
+}
+.mainline-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.mainline-entry-order {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.mainline-entry-actions {
+  display: flex;
+  gap: 4px;
+}
+.mainline-entry-actions button {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+}
+.mainline-entry-actions button:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.mainline-entry-actions button.btn-move:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.mainline-entry-text {
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.mainline-entry-note {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
