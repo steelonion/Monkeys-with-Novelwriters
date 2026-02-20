@@ -288,7 +288,7 @@ def _build_custom_field_defs_hint(sc: SessionConfig) -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt(session: Session, suggested_length: int = 2000) -> str:
+def build_system_prompt(session: Session, suggested_length: int = 1000) -> str:
     """根据会话状态构建完整的系统提示词"""
     ws = session.world_setting
     sc = session.session_config
@@ -478,7 +478,7 @@ class AIService:
         session: Session,
         user_prompt: str,
         temperature: float = 0.85,
-        suggested_length: int = 2000,
+        suggested_length: int = 1000,
     ) -> tuple[str, dict[str, CharacterState], WorldSetting, SessionConfig, dict[str, LocationSetting]]:
         """
         调用 AI 生成小说片段并解析状态更新。

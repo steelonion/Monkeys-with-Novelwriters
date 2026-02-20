@@ -12,6 +12,7 @@ let currentMainlineSummary = ''; // 当前主线概述
 let _taskPollTimer = null;       // 任务轮询定时器
 let _activeTasks = 0;            // 当前活跃的 AI 任务数
 let _currentSession = null;      // 完整的当前会话数据（用于工作区对比）
+let _mainlineSnapshot = null;    // 主线快照：收入主线时产生，未收入时为会话初始状态
 
 // ─────────── 工具函数 ───────────
 
@@ -140,11 +141,13 @@ function renderSessionList() {
   container.innerHTML = sessions.map(s => `
     <div class="session-item ${s.session_id === currentSessionId ? 'active' : ''}"
          onclick="selectSession('${s.session_id}')">
-      <div>
+      <div class="session-item-info">
         <div class="name">${escHtml(s.name)}</div>
         <div class="meta">${s.history ? s.history.length : 0} 步</div>
       </div>
-      <button class="delete-btn" onclick="event.stopPropagation();deleteSession('${s.session_id}')" title="删除">🗑</button>
+      <button class="delete-btn" onclick="event.stopPropagation();deleteSession('${s.session_id}')" title="删除">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      </button>
     </div>
   `).join('');
 }
@@ -351,35 +354,30 @@ async function selectSession(sid) {
 
 function renderSession(session) {
   _currentSession = session;
+
+  // 保存主线快照：有主线快照数据则用之，否则用当前状态作为初始快照
+  _mainlineSnapshot = {
+    characters: (session.mainline_characters && Object.keys(session.mainline_characters).length)
+      ? JSON.parse(JSON.stringify(session.mainline_characters))
+      : JSON.parse(JSON.stringify(session.characters || {})),
+    world_setting: session.mainline_world_setting
+      ? JSON.parse(JSON.stringify(session.mainline_world_setting))
+      : (session.world_setting ? JSON.parse(JSON.stringify(session.world_setting)) : null),
+    locations: (session.mainline_locations && Object.keys(session.mainline_locations).length)
+      ? JSON.parse(JSON.stringify(session.mainline_locations))
+      : JSON.parse(JSON.stringify(session.locations || {})),
+  };
+
   $('#sessionTitle').textContent = session.name || '未命名会话';
   $('#inputArea').style.display = '';
   $('#btnUndo').disabled = !session.history || session.history.length === 0;
   $('#btnClearHistory').disabled = !session.history || session.history.length === 0;
   $('#btnExport').disabled = !session.history || session.history.length === 0;
 
-  // 侧边栏显示主线状态(已提交的快照)，如果没有主线快照则显示当前状态
-  const sidebarChars = (session.mainline_characters && Object.keys(session.mainline_characters).length)
-    ? session.mainline_characters : session.characters || {};
-  const sidebarWorld = session.mainline_world_setting || session.world_setting;
+  // 写作配置面板
   const sidebarConfig = session.mainline_session_config || session.session_config;
-  const sidebarLocs = (session.mainline_locations && Object.keys(session.mainline_locations).length)
-    ? session.mainline_locations : session.locations || {};
-
-  // 角色面板
-  $('#charactersPanel').style.display = '';
-  renderCharacters(sidebarChars);
-
-  // 世界面板
-  $('#worldPanel').style.display = '';
-  renderWorldInfo(sidebarWorld);
-
-  // 会话配置面板
   $('#sessionConfigPanel').style.display = '';
   renderSessionConfig(sidebarConfig);
-
-  // 地点面板
-  $('#locationsPanel').style.display = '';
-  renderLocations(sidebarLocs);
 
   // 主线面板
   $('#mainlinePanel').style.display = '';
@@ -396,19 +394,17 @@ function renderSession(session) {
 
 function showWelcome() {
   _currentSession = null;
+  _mainlineSnapshot = null;
   $('#sessionTitle').textContent = '请选择或创建一个会话';
   $('#inputArea').style.display = 'none';
-  $('#charactersPanel').style.display = 'none';
-  $('#worldPanel').style.display = 'none';
   $('#sessionConfigPanel').style.display = 'none';
-  $('#locationsPanel').style.display = 'none';
   $('#mainlinePanel').style.display = 'none';
   $('#btnUndo').disabled = true;
   $('#btnClearHistory').disabled = true;
   $('#btnExport').disabled = true;
   currentMainline = [];
   currentMainlineSummary = '';
-  $('#workspace').style.display = 'none';
+  $('#statePanel').style.display = 'none';
   $('#storyArea').innerHTML = `
     <div class="story-welcome">
       <div class="welcome-icon">✨</div>
@@ -418,33 +414,6 @@ function showWelcome() {
 }
 
 // ─────────── 角色 ───────────
-
-function renderCharacters(chars) {
-  const container = $('#charactersList');
-  const names = Object.keys(chars);
-  if (!names.length) {
-    container.innerHTML = '<p class="empty-hint">暂无角色</p>';
-    return;
-  }
-  container.innerHTML = names.map(name => {
-    const c = chars[name];
-    let customHtml = '';
-    if (c.custom_fields && Object.keys(c.custom_fields).length) {
-      customHtml = '<div class="char-custom-fields">' +
-        Object.entries(c.custom_fields).map(([k, v]) => {
-          const valStr = typeof v === 'object' ? JSON.stringify(v, null, 0) : String(v);
-          return `<div class="char-custom-field-item"><span class="char-custom-field-key">${escHtml(k)}</span>: ${escHtml(valStr)}</div>`;
-        }).join('') + '</div>';
-    }
-    return `
-      <div class="char-card" onclick='showCharDetail(${JSON.stringify(c).replace(/'/g, "&#39;")})'>
-        <div class="char-name">${escHtml(c.name)}</div>
-        <div class="char-status">${escHtml(c.status || '未知状态')}</div>
-        <div class="char-location">📍 ${escHtml(c.location || '未知位置')}</div>
-        ${customHtml}
-      </div>`;
-  }).join('');
-}
 
 function showCharDetail(c) {
   $('#charDetailTitle').textContent = c.name;
@@ -506,34 +475,20 @@ async function addCharacter() {
     });
 
     closeModal('addCharacterModal');
-    renderCharacters(updated.characters || {});
+    // 刷新右侧状态面板
+    if (_currentSession) {
+      _currentSession.characters = updated.characters || {};
+      renderWorkspace(_currentSession);
+    }
     showToast(`角色「${name}」已添加`);
     // 清空表单
     ['#charName','#charDesc','#charPersonality','#charStatus','#charLocation','#charNotes'].forEach(s => $(s).value = '');
   } catch (e) { showToast('添加失败: ' + e.message); }
 }
 
-// ─────────── 世界设定 ───────────
+// ─────────── 地点 ───────────
 
-function renderWorldInfo(ws) {
-  if (!ws) { $('#worldInfo').innerHTML = ''; return; }
-  const fields = [
-    ['标题', ws.title],
-    ['类型', ws.genre],
-    ['世界观', ws.background],
-    ['规则', (ws.rules || []).join('；')],
-  ];
-  let html = '';
-  for (const [label, val] of fields) {
-    if (val) html += `<div class="wi-row"><span class="wi-label">${label}</span>${escHtml(val)}</div>`;
-  }
-  if (ws.extra_settings) {
-    for (const [k, v] of Object.entries(ws.extra_settings)) {
-      html += `<div class="wi-row"><span class="wi-label">${escHtml(k)}</span>${escHtml(v)}</div>`;
-    }
-  }
-  $('#worldInfo').innerHTML = html || '<p class="empty-hint">暂无设定</p>';
-}
+// ─────────── 写作配置 ───────────
 
 function renderSessionConfig(sc) {
   if (!sc) { $('#sessionConfigInfo').innerHTML = ''; return; }
@@ -545,7 +500,6 @@ function renderSessionConfig(sc) {
   for (const [label, val] of fields) {
     if (val) html += `<div class="wi-row"><span class="wi-label">${label}</span>${escHtml(val)}</div>`;
   }
-  // 显示自定义字段定义
   if (sc.custom_field_defs && sc.custom_field_defs.length) {
     html += '<div class="wi-row"><span class="wi-label">自定义字段</span>';
     html += sc.custom_field_defs.map(fd => {
@@ -556,8 +510,6 @@ function renderSessionConfig(sc) {
   }
   $('#sessionConfigInfo').innerHTML = html || '<p class="empty-hint">暂无配置</p>';
 }
-
-// ─────────── 地点 ───────────
 
 // ─────────── 角色自定义字段定义 ───────────
 
@@ -592,24 +544,6 @@ function getCustomFieldDefs() {
     });
   });
   return defs;
-}
-
-function renderLocations(locs) {
-  const container = $('#locationsList');
-  const names = Object.keys(locs);
-  if (!names.length) {
-    container.innerHTML = '<p class="empty-hint">暂无地点</p>';
-    return;
-  }
-  container.innerHTML = names.map(name => {
-    const loc = locs[name];
-    return `
-      <div class="char-card" onclick='showLocDetail(${JSON.stringify(loc).replace(/'/g, "&#39;")})'>
-        <div class="char-name">📍 ${escHtml(loc.name)}</div>
-        <div class="char-status">${escHtml(loc.description || '暂无描述')}</div>
-        ${loc.parent ? `<div class="char-location">↑ ${escHtml(loc.parent)}</div>` : ''}
-      </div>`;
-  }).join('');
 }
 
 function showLocDetail(loc) {
@@ -655,7 +589,11 @@ async function addLocation() {
     });
 
     closeModal('addLocationModal');
-    renderLocations(updated.locations || {});
+    // 刷新右侧状态面板
+    if (_currentSession) {
+      _currentSession.locations = updated.locations || {};
+      renderWorkspace(_currentSession);
+    }
     showToast(`地点「${name}」已添加`);
     ['#locName','#locDesc','#locParent','#locFeatures','#locConnected','#locNotes'].forEach(s => $(s).value = '');
   } catch (e) { showToast('添加失败: ' + e.message); }
@@ -742,34 +680,13 @@ async function generate() {
     area.appendChild(block);
     requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
 
-    // 更新侧边栏（仍显示主线状态）
+    // 更新状态面板
     if (_currentSession) {
-      // 更新当前工作状态（用于工作区对比）
       _currentSession.characters = data.characters || {};
       _currentSession.world_setting = data.world_setting;
       _currentSession.session_config = data.session_config;
       _currentSession.locations = data.locations || {};
-
-      // 侧边栏显示主线状态
-      const sidebarChars = (_currentSession.mainline_characters && Object.keys(_currentSession.mainline_characters).length)
-        ? _currentSession.mainline_characters : data.characters || {};
-      const sidebarWorld = _currentSession.mainline_world_setting || data.world_setting;
-      const sidebarConfig = _currentSession.mainline_session_config || data.session_config;
-      const sidebarLocs = (_currentSession.mainline_locations && Object.keys(_currentSession.mainline_locations).length)
-        ? _currentSession.mainline_locations : data.locations || {};
-
-      renderCharacters(sidebarChars);
-      renderWorldInfo(sidebarWorld);
-      renderSessionConfig(sidebarConfig);
-      renderLocations(sidebarLocs);
-
-      // 刷新工作区
       renderWorkspace(_currentSession);
-    } else {
-      renderCharacters(data.characters || {});
-      renderWorldInfo(data.world_setting);
-      renderSessionConfig(data.session_config);
-      renderLocations(data.locations || {});
     }
 
     // 清空输入
@@ -789,34 +706,62 @@ async function generate() {
   }
 }
 
-// ─────────── 工作区（右侧面板） ───────────
+// ─────────── 右侧状态面板（主线 + 工作区双面板） ───────────
 
-function renderWorkspace(session) {
-  const wsEl = $('#workspace');
-  if (!session) { wsEl.style.display = 'none'; return; }
+function switchStateTab(tab) {
+  // 切换 tab 按钮
+  document.querySelectorAll('.state-tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(tab === 'mainline' ? 'stateTabMainline' : 'stateTabWorkspace').classList.add('active');
 
-  wsEl.style.display = '';
-
-  const currentChars = session.characters || {};
-  const mainlineChars = session.mainline_characters || {};
-  const currentWorld = session.world_setting;
-  const mainlineWorld = session.mainline_world_setting;
-  const currentLocs = session.locations || {};
-  const mainlineLocs = session.mainline_locations || {};
-
-  // 角色工作区
-  renderWorkspaceCharacters(currentChars, mainlineChars);
-
-  // 世界设定工作区
-  renderWorkspaceWorld(currentWorld, mainlineWorld);
-
-  // 地点工作区
-  renderWorkspaceLocations(currentLocs, mainlineLocs);
+  // 切换内容面板
+  document.querySelectorAll('.state-tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById(tab === 'mainline' ? 'mainlineStatePanel' : 'workspaceStatePanel').classList.add('active');
 }
 
-function renderWorkspaceCharacters(current, mainline) {
-  const container = $('#workspaceCharacters');
-  const allNames = new Set([...Object.keys(current), ...Object.keys(mainline)]);
+function renderWorkspace(session) {
+  const panelEl = $('#statePanel');
+  if (!session) { panelEl.style.display = 'none'; return; }
+
+  panelEl.style.display = '';
+
+  const currentChars = session.characters || {};
+  const currentWorld = session.world_setting;
+  const currentLocs = session.locations || {};
+
+  // 使用 _mainlineSnapshot 作为主线面板的稳定数据源（不受生成影响）
+  const snapshot = _mainlineSnapshot || { characters: currentChars, world_setting: currentWorld, locations: currentLocs };
+
+  // 主线状态面板 —— 展示主线快照（收入主线时更新，否则为会话初始状态）
+  renderStatePanelCharacters($('#mainlineStateCharacters'), snapshot.characters, null);
+  renderStatePanelWorld($('#mainlineStateWorld'), snapshot.world_setting, null);
+  renderStatePanelLocations($('#mainlineStateLocations'), snapshot.locations, null);
+
+  // 判断当前状态和主线快照是否相同（用于决定工作区是否做差异高亮）
+  const snapshotCharsStr = JSON.stringify(snapshot.characters);
+  const snapshotWorldStr = JSON.stringify(snapshot.world_setting);
+  const snapshotLocsStr = JSON.stringify(snapshot.locations);
+  const hasDiff = JSON.stringify(currentChars) !== snapshotCharsStr
+    || JSON.stringify(currentWorld) !== snapshotWorldStr
+    || JSON.stringify(currentLocs) !== snapshotLocsStr;
+
+  // 工作区状态面板 —— 展示当前状态；有差异时与主线快照对比高亮
+  const wsCharsBaseline = hasDiff ? snapshot.characters : null;
+  const wsWorldBaseline = hasDiff ? snapshot.world_setting : null;
+  const wsLocsBaseline = hasDiff ? snapshot.locations : null;
+
+  renderStatePanelCharacters($('#workspaceStateCharacters'), currentChars, wsCharsBaseline);
+  renderStatePanelWorld($('#workspaceStateWorld'), currentWorld, wsWorldBaseline);
+  renderStatePanelLocations($('#workspaceStateLocations'), currentLocs, wsLocsBaseline);
+}
+
+/**
+ * 通用角色渲染：current = 要展示的数据，baseline = 对比基准（用于高亮差异），null 表示不做差异对比
+ */
+function renderStatePanelCharacters(container, current, baseline) {
+  const allNames = new Set([...Object.keys(current || {})]);
+  if (baseline) {
+    for (const n of Object.keys(baseline)) allNames.add(n);
+  }
 
   if (!allNames.size) {
     container.innerHTML = '<p class="empty-hint">暂无角色</p>';
@@ -825,25 +770,24 @@ function renderWorkspaceCharacters(current, mainline) {
 
   let html = '';
   for (const name of allNames) {
-    const cur = current[name];
-    const ml = mainline[name];
-    const isNew = cur && !ml;
-    const isChanged = cur && ml && _isCharChanged(cur, ml);
-    const charData = cur || ml;
+    const cur = (current || {})[name];
+    const bl = baseline ? baseline[name] : null;
+    const isNew = baseline && cur && !bl;
+    const isChanged = baseline && cur && bl && _isCharChanged(cur, bl);
+    const charData = cur || bl;
 
-    const cardClass = isNew ? 'ws-char-card ws-changed' : (isChanged ? 'ws-char-card ws-changed' : 'ws-char-card');
+    const cardClass = (isNew || isChanged) ? 'ws-char-card ws-changed' : 'ws-char-card';
     const badge = isNew ? '<span class="ws-badge-new">新</span>' : (isChanged ? '<span class="ws-badge-updated">已更新</span>' : '');
 
     html += `<div class="${cardClass}">`;
     html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}</div>`;
 
-    // 展示关键字段，如果和主线不同则高亮
     const fields = [
       ['状态', 'status'], ['位置', 'location'], ['描述', 'description']
     ];
     for (const [label, key] of fields) {
       if (!charData[key]) continue;
-      const changed = ml && cur && ml[key] !== cur[key];
+      const changed = baseline && bl && cur && bl[key] !== cur[key];
       html += `<div class="ws-char-field"><span class="ws-label">${label}:</span> `;
       html += changed ? `<span class="ws-diff">${escHtml(cur[key])}</span>` : escHtml(charData[key]);
       html += '</div>';
@@ -854,9 +798,9 @@ function renderWorkspaceCharacters(current, mainline) {
       html += '<div class="ws-custom-fields">';
       for (const [k, v] of Object.entries(charData.custom_fields)) {
         const valStr = typeof v === 'object' ? JSON.stringify(v, null, 0) : String(v);
-        const mlCf = ml && ml.custom_fields ? ml.custom_fields[k] : undefined;
-        const cfChanged = mlCf !== undefined && JSON.stringify(mlCf) !== JSON.stringify(v);
-        const isNewCf = mlCf === undefined && isChanged;
+        const blCf = bl && bl.custom_fields ? bl.custom_fields[k] : undefined;
+        const cfChanged = baseline && blCf !== undefined && JSON.stringify(blCf) !== JSON.stringify(v);
+        const isNewCf = baseline && blCf === undefined && isChanged;
         html += `<div class="ws-custom-field"><span class="ws-custom-key">${escHtml(k)}:</span> `;
         html += (cfChanged || isNewCf) ? `<span class="ws-diff">${escHtml(valStr)}</span>` : `<span class="ws-custom-val">${escHtml(valStr)}</span>`;
         html += '</div>';
@@ -879,8 +823,7 @@ function _isCharChanged(cur, ml) {
   return false;
 }
 
-function renderWorkspaceWorld(current, mainline) {
-  const container = $('#workspaceWorld');
+function renderStatePanelWorld(container, current, baseline) {
   if (!current) {
     container.innerHTML = '<p class="empty-hint">暂无世界设定</p>';
     return;
@@ -894,18 +837,17 @@ function renderWorkspaceWorld(current, mainline) {
   for (const [label, key] of fields) {
     const val = current[key];
     if (!val) continue;
-    const changed = mainline && mainline[key] && mainline[key] !== val;
+    const changed = baseline && baseline[key] && baseline[key] !== val;
     html += `<div class="ws-world-item">`;
     html += `<div class="ws-world-label">${label}</div>`;
     html += `<div class="ws-world-value${changed ? ' ws-diff' : ''}">${escHtml(val)}</div>`;
     html += '</div>';
   }
 
-  // extra_settings
   if (current.extra_settings) {
     for (const [k, v] of Object.entries(current.extra_settings)) {
-      const mlVal = mainline && mainline.extra_settings ? mainline.extra_settings[k] : undefined;
-      const changed = mlVal !== undefined && mlVal !== v;
+      const blVal = baseline && baseline.extra_settings ? baseline.extra_settings[k] : undefined;
+      const changed = baseline && blVal !== undefined && blVal !== v;
       html += `<div class="ws-world-item">`;
       html += `<div class="ws-world-label">${escHtml(k)}</div>`;
       html += `<div class="ws-world-value${changed ? ' ws-diff' : ''}">${escHtml(v)}</div>`;
@@ -916,9 +858,11 @@ function renderWorkspaceWorld(current, mainline) {
   container.innerHTML = html || '<p class="empty-hint">暂无世界设定</p>';
 }
 
-function renderWorkspaceLocations(current, mainline) {
-  const container = $('#workspaceLocations');
-  const allNames = new Set([...Object.keys(current), ...Object.keys(mainline)]);
+function renderStatePanelLocations(container, current, baseline) {
+  const allNames = new Set([...Object.keys(current || {})]);
+  if (baseline) {
+    for (const n of Object.keys(baseline)) allNames.add(n);
+  }
 
   if (!allNames.size) {
     container.innerHTML = '<p class="empty-hint">暂无地点</p>';
@@ -927,11 +871,11 @@ function renderWorkspaceLocations(current, mainline) {
 
   let html = '';
   for (const name of allNames) {
-    const cur = current[name];
-    const ml = mainline[name];
-    const isNew = cur && !ml;
-    const isChanged = cur && ml && JSON.stringify(cur) !== JSON.stringify(ml);
-    const locData = cur || ml;
+    const cur = (current || {})[name];
+    const bl = baseline ? baseline[name] : null;
+    const isNew = baseline && cur && !bl;
+    const isChanged = baseline && cur && bl && JSON.stringify(cur) !== JSON.stringify(bl);
+    const locData = cur || bl;
 
     const cardClass = (isNew || isChanged) ? 'ws-loc-card ws-changed' : 'ws-loc-card';
     html += `<div class="${cardClass}">`;
@@ -1072,10 +1016,20 @@ async function addToMainline(btnEl) {
     try {
       const fullSession = await apiJson(`/api/session/${currentSessionId}`);
       _currentSession = fullSession;
-      // 侧边栏变为使用新的主线快照
-      const sidebarChars = (fullSession.mainline_characters && Object.keys(fullSession.mainline_characters).length)
-        ? fullSession.mainline_characters : fullSession.characters || {};
-      renderCharacters(sidebarChars);
+
+      // 更新主线快照：收入主线后，服务端会产生新的 mainline 快照
+      _mainlineSnapshot = {
+        characters: (fullSession.mainline_characters && Object.keys(fullSession.mainline_characters).length)
+          ? JSON.parse(JSON.stringify(fullSession.mainline_characters))
+          : JSON.parse(JSON.stringify(fullSession.characters || {})),
+        world_setting: fullSession.mainline_world_setting
+          ? JSON.parse(JSON.stringify(fullSession.mainline_world_setting))
+          : (fullSession.world_setting ? JSON.parse(JSON.stringify(fullSession.world_setting)) : null),
+        locations: (fullSession.mainline_locations && Object.keys(fullSession.mainline_locations).length)
+          ? JSON.parse(JSON.stringify(fullSession.mainline_locations))
+          : JSON.parse(JSON.stringify(fullSession.locations || {})),
+      };
+
       renderWorkspace(fullSession);
     } catch (_) { /* 不影响主流程 */ }
 

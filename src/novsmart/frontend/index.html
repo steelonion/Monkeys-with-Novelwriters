@@ -45,25 +45,6 @@
       </div>
     </div>
 
-    <!-- 角色面板 -->
-    <div class="panel" id="charactersPanel" style="display:none">
-      <div class="panel-title">
-        <i class="icon">👥</i> 角色状态
-        <span class="sidebar-state-label">主线</span>
-        <button class="btn btn-sm btn-ghost" onclick="openAddCharacterModal()">+ 添加</button>
-      </div>
-      <div id="charactersList" class="characters-list"></div>
-    </div>
-
-    <!-- 世界设定面板 -->
-    <div class="panel" id="worldPanel" style="display:none">
-      <div class="panel-title">
-        <i class="icon">🌍</i> 世界设定
-        <button class="btn btn-sm btn-ghost" onclick="openEditSessionModal()">✏ 编辑</button>
-      </div>
-      <div id="worldInfo" class="world-info"></div>
-    </div>
-
     <!-- 会话配置面板 -->
     <div class="panel" id="sessionConfigPanel" style="display:none">
       <div class="panel-title">
@@ -71,15 +52,6 @@
         <button class="btn btn-sm btn-ghost" onclick="openEditSessionModal()">✏ 编辑</button>
       </div>
       <div id="sessionConfigInfo" class="world-info"></div>
-    </div>
-
-    <!-- 地点设定面板 -->
-    <div class="panel" id="locationsPanel" style="display:none">
-      <div class="panel-title">
-        <i class="icon">📍</i> 地点设定
-        <button class="btn btn-sm btn-ghost" onclick="openAddLocationModal()">+ 添加</button>
-      </div>
-      <div id="locationsList" class="locations-list"></div>
     </div>
 
     <!-- 文章主线面板 -->
@@ -123,7 +95,7 @@
         <div class="input-controls">
           <div class="param-group">
             <label class="param">🌡 温度 <input type="range" id="temperature" min="0" max="2" step="0.05" value="0.85" oninput="this.nextElementSibling.textContent=this.value" /><span>0.85</span></label>
-            <label class="param">📝 片段长度 <input type="range" id="suggestedLength" min="100" max="8000" step="100" value="2000" oninput="this.nextElementSibling.textContent=this.value" /><span>2000</span></label>
+            <label class="param">📝 片段长度 <input type="range" id="suggestedLength" min="100" max="8000" step="100" value="1000" oninput="this.nextElementSibling.textContent=this.value" /><span>1000</span></label>
           </div>
           <button class="btn btn-primary btn-generate" id="btnGenerate" onclick="generate()">
             <span class="btn-text">✦ 生成</span>
@@ -134,29 +106,45 @@
     </section>
   </main>
 
-  <!-- ═══════════════════ 右侧工作区面板 ═══════════════════ -->
-  <aside id="workspace" class="workspace" style="display:none">
-    <div class="workspace-header">
-      <h3>🔧 工作区</h3>
-      <span class="workspace-hint">主线 + 本轮对话更新</span>
+  <!-- ═══════════════════ 右侧状态面板 ═══════════════════ -->
+  <aside id="statePanel" class="state-panel" style="display:none">
+    <div class="state-panel-header">
+      <div class="state-tab-switcher">
+        <button class="state-tab-btn active" onclick="switchStateTab('mainline')" id="stateTabMainline">📌 主线状态</button>
+        <button class="state-tab-btn" onclick="switchStateTab('workspace')" id="stateTabWorkspace">🔧 工作区状态</button>
+      </div>
     </div>
 
-    <!-- 工作区角色 -->
-    <div class="workspace-section">
-      <div class="workspace-section-title">👥 角色状态</div>
-      <div id="workspaceCharacters" class="workspace-content"></div>
+    <!-- 主线状态面板 -->
+    <div id="mainlineStatePanel" class="state-tab-content active">
+      <div class="workspace-section">
+        <div class="workspace-section-title">👥 角色状态</div>
+        <div id="mainlineStateCharacters" class="workspace-content"></div>
+      </div>
+      <div class="workspace-section">
+        <div class="workspace-section-title">🌍 世界设定</div>
+        <div id="mainlineStateWorld" class="workspace-content"></div>
+      </div>
+      <div class="workspace-section">
+        <div class="workspace-section-title">📍 地点</div>
+        <div id="mainlineStateLocations" class="workspace-content"></div>
+      </div>
     </div>
 
-    <!-- 工作区世界设定 -->
-    <div class="workspace-section">
-      <div class="workspace-section-title">🌍 世界设定</div>
-      <div id="workspaceWorld" class="workspace-content"></div>
-    </div>
-
-    <!-- 工作区地点 -->
-    <div class="workspace-section">
-      <div class="workspace-section-title">📍 地点</div>
-      <div id="workspaceLocations" class="workspace-content"></div>
+    <!-- 工作区状态面板 -->
+    <div id="workspaceStatePanel" class="state-tab-content">
+      <div class="workspace-section">
+        <div class="workspace-section-title">👥 角色状态</div>
+        <div id="workspaceStateCharacters" class="workspace-content"></div>
+      </div>
+      <div class="workspace-section">
+        <div class="workspace-section-title">🌍 世界设定</div>
+        <div id="workspaceStateWorld" class="workspace-content"></div>
+      </div>
+      <div class="workspace-section">
+        <div class="workspace-section-title">📍 地点</div>
+        <div id="workspaceStateLocations" class="workspace-content"></div>
+      </div>
     </div>
   </aside>
 
