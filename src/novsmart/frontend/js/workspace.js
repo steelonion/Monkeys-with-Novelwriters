@@ -12,13 +12,13 @@ function switchStateTab(tab) {
 
 /** 将主线状态同步到工作区状态 */
 async function syncMainlineToWorkspace() {
-  if (!currentSession) return;
+  if (!_currentSession) return;
   if (!confirm('确定将主线状态同步到工作区吗？\n这将用主线的角色、世界设定、地点覆盖当前工作区状态。')) return;
   try {
-    const res = await fetch(`${API}/api/session/${currentSession.session_id}/sync-mainline-to-workspace`, { method: 'POST' });
+    const res = await fetch(`${API}/api/session/${_currentSession.session_id}/sync-mainline-to-workspace`, { method: 'POST' });
     if (!res.ok) throw new Error(await res.text());
-    currentSession = await res.json();
-    renderWorkspace(currentSession);
+    _currentSession = await res.json();
+    renderWorkspace(_currentSession);
     showToast('主线状态已同步到工作区', 'success');
   } catch (e) {
     showToast('同步失败: ' + e.message, 'error');
