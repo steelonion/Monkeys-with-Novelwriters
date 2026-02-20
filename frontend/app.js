@@ -80,11 +80,11 @@ async function apiJson(path, opts = {}) {
 async function loadConfig() {
   try {
     const cfg = await apiJson('/api/config');
+    if (cfg.api_key) $('#apiKey').value = cfg.api_key;
+    if (cfg.base_url) $('#baseUrl').value = cfg.base_url;
+    if (cfg.model) $('#model').value = cfg.model;
     if (cfg.configured) {
       setConfigStatus('success', `已连接 · ${cfg.model}`);
-      if (cfg.api_key_set) $('#apiKey').value = '••••••••';
-      $('#baseUrl').value = cfg.base_url;
-      $('#model').value = cfg.model;
     }
   } catch { /* ignore */ }
 }
@@ -93,7 +93,7 @@ async function saveConfig() {
   const apiKey = $('#apiKey').value.trim();
   const baseUrl = $('#baseUrl').value.trim();
   const model = $('#model').value.trim();
-  if (!apiKey || apiKey === '••••••••') {
+  if (!apiKey) {
     showToast('请输入有效的 API Key');
     return;
   }

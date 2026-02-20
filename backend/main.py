@@ -50,7 +50,7 @@ async def get_config():
         "configured": ai_service.is_configured,
         "model": ai_service.model,
         "base_url": ai_service.base_url,
-        "api_key_set": bool(ai_service.api_key),
+        "api_key": ai_service.api_key,
     }
 
 
@@ -210,6 +210,12 @@ async def serve_frontend():
     if index_path.exists():
         return FileResponse(index_path)
     return JSONResponse({"error": "前端文件不存在"}, status_code=404)
+
+
+@app.on_event("startup")
+async def on_startup():
+    """启动时自动加载已保存的配置"""
+    ai_service.load_config()
 
 
 if __name__ == "__main__":

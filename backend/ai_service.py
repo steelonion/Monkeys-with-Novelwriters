@@ -6,8 +6,12 @@ from __future__ import annotations
 import json
 import re
 import copy
+from pathlib import Path
 from openai import AsyncOpenAI
 from models import CharacterState, WorldSetting, Session
+
+# 配置文件路径
+CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 
 
 # ────────────────────────────── 提示词模板 ──────────────────────────────
@@ -257,11 +261,33 @@ class AIService:
         self.api_key: str = ""
         self.base_url: str = "https://api.openai.com/v1"
 
-    def configure(self, api_key: str, base_url: str = "https://api.openai.com/v1", model: str = "gpt-4o"):
+    def configure(self, api_key: str, base_url: str = "https://api.openai.com/v1", model: str = "gpt-4o", *, save: bool = True):
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        if save:
+            self._save_config()
+
+    def _save_config(self):
+        """将配置持久化到磁盘"""
+        data = {"api_key": self.api_key, "base_url": self.base_url, "model": self.model}
+        CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def load_config(self):
+        """从磁盘加载配置（启动时调用）"""
+        if CONFIG_PATH.exists():
+            try:
+                data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+                if data.get("api_key"):
+                    self.configure(
+                        api_key=data["api_key"],
+                        base_url=data.get("base_url", "https://api.openai.com/v1"),
+                        model=data.get("model", "gpt-4o"),
+                        save=False,
+                    )
+            except Exception:
+                pass
 
     @property
     def is_configured(self) -> bool:
