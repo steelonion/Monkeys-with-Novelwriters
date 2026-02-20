@@ -1043,3 +1043,73 @@ label textarea::placeholder { color: var(--text-muted); }
   margin-left: auto;
   font-weight: 400;
 }
+
+/* ─────────── 自定义字段定义 UI ─────────── */
+.form-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.custom-field-defs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.cfd-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.cfd-row .cfd-name {
+  flex: 2;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+.cfd-row .cfd-type {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 0.82rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+.cfd-row .cfd-desc {
+  flex: 2;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+.cfd-row .cfd-remove {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  color: var(--danger);
+}
+
+/* 侧边栏配置面板中的自定义字段标签 */
+.cfd-tag {
+  display: inline-block;
+  background: var(--accent-glow);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  margin: 2px 4px 2px 0;
+}
+.cfd-tag small {
+  color: var(--text-muted);
+  margin-left: 2px;
+  font-size: 0.7rem;
+}

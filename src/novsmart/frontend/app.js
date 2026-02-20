@@ -178,6 +178,7 @@ async function createSession() {
     session_config: {
       current_arc: $('#newArc').value.trim(),
       custom_instructions: $('#newInstructions').value.trim(),
+      custom_field_defs: getCustomFieldDefs(),
     },
     characters: {},
   };
@@ -260,6 +261,7 @@ async function smartParseAndFill() {
 function clearSessionFormFields() {
   ['#newSessionName','#newTitle','#newGenre','#newBackground','#newRules','#newArc','#newInstructions','#smartText'].forEach(s => $(s).value = '');
   $('#smartParseStatus').style.display = 'none';
+  $('#customFieldDefsList').innerHTML = '';
 }
 
 // ─────────── 编辑会话设定 ───────────
@@ -281,6 +283,14 @@ async function openEditSessionModal() {
     $('#newArc').value = sc.current_arc || '';
     $('#newInstructions').value = sc.custom_instructions || '';
 
+    // 填充自定义字段定义
+    $('#customFieldDefsList').innerHTML = '';
+    if (sc.custom_field_defs && sc.custom_field_defs.length) {
+      for (const fd of sc.custom_field_defs) {
+        addCustomFieldDefRow(fd.name, fd.field_type, fd.description);
+      }
+    }
+
     switchCreateMode('manual');
     $('#sessionModalTitle').textContent = '编辑会话设定';
     $('#btnManualCreate').textContent = '保存';
@@ -300,6 +310,7 @@ async function updateSessionSettings() {
   const sc = {
     current_arc: $('#newArc').value.trim(),
     custom_instructions: $('#newInstructions').value.trim(),
+    custom_field_defs: getCustomFieldDefs(),
   };
 
   try {
@@ -534,10 +545,54 @@ function renderSessionConfig(sc) {
   for (const [label, val] of fields) {
     if (val) html += `<div class="wi-row"><span class="wi-label">${label}</span>${escHtml(val)}</div>`;
   }
+  // 显示自定义字段定义
+  if (sc.custom_field_defs && sc.custom_field_defs.length) {
+    html += '<div class="wi-row"><span class="wi-label">自定义字段</span>';
+    html += sc.custom_field_defs.map(fd => {
+      const t = {string:'字符串',number:'数字',list:'数组',object:'对象'}[fd.field_type] || fd.field_type;
+      return `<span class="cfd-tag">${escHtml(fd.name)}<small>(${t})</small></span>`;
+    }).join(' ');
+    html += '</div>';
+  }
   $('#sessionConfigInfo').innerHTML = html || '<p class="empty-hint">暂无配置</p>';
 }
 
 // ─────────── 地点 ───────────
+
+// ─────────── 角色自定义字段定义 ───────────
+
+function addCustomFieldDefRow(name = '', type = 'string', desc = '') {
+  const container = $('#customFieldDefsList');
+  const row = document.createElement('div');
+  row.className = 'cfd-row';
+  row.innerHTML = `
+    <input type="text" class="cfd-name" placeholder="字段名（如修为境界）" value="${escHtml(name)}" />
+    <select class="cfd-type">
+      <option value="string"${type==='string'?' selected':''}>字符串</option>
+      <option value="number"${type==='number'?' selected':''}>数字</option>
+      <option value="list"${type==='list'?' selected':''}>数组</option>
+      <option value="object"${type==='object'?' selected':''}>对象</option>
+    </select>
+    <input type="text" class="cfd-desc" placeholder="说明（可选）" value="${escHtml(desc)}" />
+    <button class="btn btn-sm btn-ghost cfd-remove" type="button" onclick="this.closest('.cfd-row').remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function getCustomFieldDefs() {
+  const rows = document.querySelectorAll('.cfd-row');
+  const defs = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.cfd-name').value.trim();
+    if (!name) return;
+    defs.push({
+      name,
+      field_type: row.querySelector('.cfd-type').value,
+      description: row.querySelector('.cfd-desc').value.trim(),
+    });
+  });
+  return defs;
+}
 
 function renderLocations(locs) {
   const container = $('#locationsList');

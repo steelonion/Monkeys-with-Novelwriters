@@ -205,6 +205,11 @@
           <label>写作风格要求
             <textarea id="newInstructions" rows="2" placeholder="如：文风偏古典，多用四字短语，节奏紧凑"></textarea>
           </label>
+
+          <div class="form-section-title">🧩 角色自定义字段</div>
+          <p class="form-hint">定义本会话中角色需要追踪的特殊属性（如修为境界、技能、等级等），AI 会自动为每个角色维护这些字段。</p>
+          <div id="customFieldDefsList" class="custom-field-defs-list"></div>
+          <button class="btn btn-sm btn-ghost" type="button" onclick="addCustomFieldDefRow()">+ 添加字段</button>
         </div>
       </div>
       <div class="modal-footer">

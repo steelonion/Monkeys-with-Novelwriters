@@ -130,11 +130,13 @@ SYSTEM_PROMPT_TEMPLATE = """\
 }}
 ```
 
+{custom_field_defs_hint}
 注意：
 - 只需要列出**状态发生变化**的角色，未变化的角色不用列出。
 - world_update 只列出有变化的字段，没变化可以留空对象。
 - locations_update 只列出新出现或发生变化的地点。
-- custom_fields 用于存储任何小说特有的角色属性（如技能、等级、属性值、能力、阵营等），请根据角色设定中已有的 custom_fields 保持格式一致并更新变化的内容。已有的 custom_fields 键不要遗漏。
+- custom_fields 用于存储任何小说特有的角色属性（如技能、等级、属性值、能力、阵营、修为境界、血统、法术、好感度、阵法、体质等），请根据角色设定中已有的 custom_fields 保持格式一致并更新变化的内容。已有的 custom_fields 键不要遗漏。
+- **重要**：当角色的某些状态信息（如修为等级、技能熟练度、魔力值、战斗力、阵营声望等）无法被 name/description/personality/status/location/relationships/inventory/notes 这些基础字段充分表达时，**必须**将其作为新的 custom_fields 键写入。主动发现并创建新的自定义字段，而不是将所有信息挤入 status 或 notes。
 - JSON 必须合法，可以被直接解析。
 """
 
@@ -205,7 +207,7 @@ PARSE_TEXT_PROMPT = """\
 4. session_name 应简短概括该小说主题（5-15字）。
 5. world_setting 只放世界观构建相关的信息（标题、类型、背景、规则等）。
 6. session_config 放会话级别的配置（剧情弧、写作风格要求等）。
-7. 角色的 custom_fields 用于存放不属于基础字段的自定义属性（如技能、等级、属性值、阵营、能力系统等），请尽量从文本中提取这些特色属性。
+7. 角色的 custom_fields 用于存放不属于基础字段的自定义属性（如技能、等级、属性值、阵营、能力系统、修为境界、血统、法术列表、好感度等）。**请积极从文本中识别并创建合适的 custom_fields**——只要某项信息无法被 name/description/personality/status/location/relationships/inventory/notes 充分表示，就应该为它建立一个语义清晰的 custom_field 键。例如：修仙小说可创建"修为境界"、"功法"、"灵根"；游戏类可创建"等级"、"HP"、"MP"、"技能列表"等。
 8. 只输出 JSON，不要输出额外的解释文字。
 """
 
@@ -273,6 +275,18 @@ def _build_recent_story(history, max_steps: int = 3) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+def _build_custom_field_defs_hint(sc: SessionConfig) -> str:
+    """根据会话配置中的自定义字段定义，生成提示文本"""
+    if not sc.custom_field_defs:
+        return ""
+    lines = ["**本会话为角色定义了以下自定义字段，请在 custom_fields 中始终维护这些字段：**"]
+    for fd in sc.custom_field_defs:
+        type_hint = {"string": "字符串", "number": "数字", "list": "数组", "object": "对象"}.get(fd.field_type, fd.field_type)
+        desc = f"（{fd.description}）" if fd.description else ""
+        lines.append(f"  - `{fd.name}` ({type_hint}){desc}")
+    return "\n".join(lines)
+
+
 def build_system_prompt(session: Session) -> str:
     """根据会话状态构建完整的系统提示词"""
     ws = session.world_setting
@@ -291,6 +305,9 @@ def build_system_prompt(session: Session) -> str:
         else:
             mainline_summary = "（暂无主线内容，这是故事的开端）"
 
+    # 构建自定义字段定义提示
+    custom_field_defs_hint = _build_custom_field_defs_hint(sc)
+
     return SYSTEM_PROMPT_TEMPLATE.format(
         title=ws.title or "未定",
         genre=ws.genre or "未定",
@@ -303,6 +320,7 @@ def build_system_prompt(session: Session) -> str:
         characters_block=_build_characters_block(session.characters),
         mainline_summary=mainline_summary,
         recent_story=_build_recent_story(session.history),
+        custom_field_defs_hint=custom_field_defs_hint,
     )
 
 

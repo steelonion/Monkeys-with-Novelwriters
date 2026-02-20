@@ -47,12 +47,22 @@ class WorldSetting(BaseModel):
     extra_settings: dict[str, str] = Field(default_factory=dict, description="其他自定义设定键值对")
 
 
+# ────────────────────────────── 自定义字段定义 ──────────────────────────────
+
+class CustomFieldDef(BaseModel):
+    """角色自定义字段的定义"""
+    name: str = Field(..., description="字段名称，如'修为境界'、'技能列表'")
+    field_type: str = Field(default="string", description="字段类型: string / number / list / object")
+    description: str = Field(default="", description="字段含义说明，帮助AI理解")
+
+
 # ────────────────────────────── 会话配置 ──────────────────────────────
 
 class SessionConfig(BaseModel):
     """会话级别的配置（写作风格、剧情弧等，与世界观无关）"""
     current_arc: str = Field(default="", description="当前剧情弧")
     custom_instructions: str = Field(default="", description="用户自定义写作指令/风格要求")
+    custom_field_defs: list[CustomFieldDef] = Field(default_factory=list, description="角色自定义字段定义列表")
 
 
 # ────────────────────────────── 历史步骤 ──────────────────────────────
