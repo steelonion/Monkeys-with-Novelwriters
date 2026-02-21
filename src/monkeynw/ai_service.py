@@ -17,7 +17,7 @@ CONFIG_PATH = Path.cwd() / "config.json"
 
 # 调试日志
 LOG_DIR = Path.cwd() / "log"
-DEBUG_MODE = os.environ.get("NOVSMART_DEBUG") == "1"
+DEBUG_MODE = os.environ.get("MONKEYNW_DEBUG") == "1"
 if DEBUG_MODE:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 

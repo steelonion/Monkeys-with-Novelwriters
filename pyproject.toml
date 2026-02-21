@@ -17,10 +17,10 @@ dependencies = [
 ]
 
 [project.scripts]
-novsmart = "novsmart.__main__:main"
+monkeynw = "monkeynw.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-novsmart = ["frontend/**/*"]
+monkeynw = ["frontend/**/*"]

@@ -1,5 +1,5 @@
 /**
- * NovSmart - 会话管理（列表、新建、编辑、删除、渲染）
+ * MonkeyNW - 会话管理（列表、新建、编辑、删除、渲染）
  */
 
 async function loadSessions() {
@@ -280,7 +280,7 @@ function showWelcome() {
   $('#storyArea').innerHTML = `
     <div class="story-welcome">
       <div class="welcome-icon">✨</div>
-      <h2>欢迎使用 NovSmart</h2>
+      <h2>欢迎使用 MonkeyNW</h2>
       <p>创建一个新会话，设定你的世界观和角色，然后开始你的创作之旅。</p>
     </div>`;
 }

@@ -47,7 +47,7 @@ function toggleTheme() {
   const current = html.getAttribute('data-theme');
   const next = current === 'light' ? 'dark' : 'light';
   html.setAttribute('data-theme', next);
-  localStorage.setItem('novsmart-theme', next);
+  localStorage.setItem('monkeynw-theme', next);
   updateThemeIcon(next);
 }
 
@@ -57,7 +57,7 @@ function updateThemeIcon(theme) {
 }
 
 function initTheme() {
-  const saved = localStorage.getItem('novsmart-theme');
+  const saved = localStorage.getItem('monkeynw-theme');
   let theme = saved;
   if (!theme) {
     theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';

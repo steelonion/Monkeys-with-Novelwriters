@@ -1,5 +1,5 @@
 """
-Monkeys-with-Novelwriters 启动入口 - 通过 python -m novsmart 启动
+Monkeys-with-Novelwriters 启动入口 - 通过 python -m monkeynw 启动
 """
 import argparse
 import os
@@ -15,12 +15,12 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        os.environ["NOVSMART_DEBUG"] = "1"
+        os.environ["MONKEYNW_DEBUG"] = "1"
         from .ai_service import enable_debug_mode
         enable_debug_mode()
         print("🔍 调试模式已启用，日志将写入 log/ 目录")
 
-    uvicorn.run("novsmart.main:app", host=args.host, port=args.port, reload=True)
+    uvicorn.run("monkeynw.main:app", host=args.host, port=args.port, reload=True)
 
 
 if __name__ == "__main__":
