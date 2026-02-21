@@ -87,16 +87,32 @@ async function generate() {
     if (area.querySelector('.story-welcome')) area.innerHTML = '';
 
     if (mode === 'adjust') {
-      const blocks = area.querySelectorAll('.story-block');
-      const lastBlock = blocks[blocks.length - 1];
-      if (lastBlock) {
-        lastBlock.innerHTML = `
-          <div class="story-prompt">✎ ${escHtml(prompt)}</div>
-          <div class="story-text">${escHtml(data.story_text)}</div>
-          <div class="story-actions">
-            <button class="btn-add-mainline" onclick="addToMainline(this)" title="将此段落收入文章主线">📌 收入主线</button>
-          </div>
-        `;
+      // 调整模式：从服务端重新获取完整会话，用 renderStory 重新渲染整个故事区
+      // 避免手动 DOM 操作导致与服务端历史不一致
+      if (_currentSession) {
+        try {
+          const fullSession = await apiJson(`/api/session/${currentSessionId}`);
+          _currentSession = fullSession;
+          renderStory(_currentSession.history || []);
+        } catch (_) {
+          // 回退：仅替换最后一个块的内容
+          const blocks = area.querySelectorAll('.story-block');
+          const lastBlock = blocks[blocks.length - 1];
+          if (lastBlock) {
+            lastBlock.innerHTML = `
+              <div class="story-prompt">✎ ${escHtml(prompt)}</div>
+              <div class="story-text">${escHtml(data.story_text)}</div>
+              <div class="story-actions">
+                <button class="btn-add-mainline" onclick="addToMainline(this)" title="将此段落收入文章主线">📌 收入主线</button>
+              </div>
+            `;
+          }
+          _currentSession.characters = data.characters || {};
+          _currentSession.world_setting = data.world_setting;
+          _currentSession.session_config = data.session_config;
+          _currentSession.locations = data.locations || {};
+        }
+        renderWorkspace(_currentSession);
       }
     } else {
       const block = document.createElement('div');
@@ -114,15 +130,23 @@ async function generate() {
         area.appendChild(divider);
       }
       area.appendChild(block);
-    }
-    requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
 
-    if (_currentSession) {
-      _currentSession.characters = data.characters || {};
-      _currentSession.world_setting = data.world_setting;
-      _currentSession.session_config = data.session_config;
-      _currentSession.locations = data.locations || {};
-      renderWorkspace(_currentSession);
+      requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+
+      if (_currentSession) {
+        // 重新获取完整会话数据，确保 history 等所有字段与服务端同步
+        try {
+          const fullSession = await apiJson(`/api/session/${currentSessionId}`);
+          _currentSession = fullSession;
+        } catch (_) {
+          // 回退：至少更新已有字段
+          _currentSession.characters = data.characters || {};
+          _currentSession.world_setting = data.world_setting;
+          _currentSession.session_config = data.session_config;
+          _currentSession.locations = data.locations || {};
+        }
+        renderWorkspace(_currentSession);
+      }
     }
 
     $('#userPrompt').value = '';
