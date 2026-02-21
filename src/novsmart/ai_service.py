@@ -76,6 +76,9 @@ SYSTEM_PROMPT_TEMPLATE = """\
 ## 当前角色状态
 {characters_block}
 
+## 前情概述（之前章节的内容摘要）
+{mainline_prefix}
+
 ## 文章主线概述
 {mainline_summary}
 
@@ -346,6 +349,9 @@ def build_system_prompt(session: Session, suggested_length: int = 1000) -> str:
         else:
             mainline_summary = "（暂无主线内容，这是故事的开端）"
 
+    # 前情概述（手动插入的上文概述）
+    mainline_prefix = session.mainline_prefix.strip() if session.mainline_prefix else "（暂无前情概述）"
+
     # 构建自定义字段定义提示
     custom_field_defs_hint = _build_custom_field_defs_hint(sc)
 
@@ -359,6 +365,7 @@ def build_system_prompt(session: Session, suggested_length: int = 1000) -> str:
         extra_settings=extra,
         locations_block=_build_locations_block(session.locations),
         characters_block=_build_characters_block(session.characters),
+        mainline_prefix=mainline_prefix,
         mainline_summary=mainline_summary,
         recent_story=_build_recent_story(session.history),
         custom_field_defs_hint=custom_field_defs_hint,

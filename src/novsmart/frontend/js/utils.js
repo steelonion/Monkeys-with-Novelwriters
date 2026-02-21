@@ -10,6 +10,7 @@ let sessions = [];
 let sessionModalMode = 'create'; // 'create' or 'edit'
 let currentMainline = [];       // 当前主线数据
 let currentMainlineSummary = ''; // 当前主线概述
+let currentMainlinePrefix = '';  // 当前主线前情概述（手动插入的上文概述）
 let _taskPollTimer = null;       // 任务轮询定时器
 let _activeTasks = 0;            // 当前活跃的 AI 任务数
 let _currentSession = null;      // 完整的当前会话数据

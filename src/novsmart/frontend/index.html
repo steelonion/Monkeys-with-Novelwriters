@@ -321,6 +321,19 @@
         <button class="btn btn-icon" onclick="closeModal('mainlineModal')">✕</button>
       </div>
       <div class="modal-body">
+        <!-- 前情概述（手动插入） -->
+        <div class="mainline-prefix-section">
+          <div class="mainline-section-header">
+            <h4>📋 前情概述（上文摘要）</h4>
+            <button class="btn btn-sm btn-ghost" id="btnSavePrefix" onclick="saveMainlinePrefix()">💾 保存</button>
+          </div>
+          <p class="form-hint" style="margin-bottom:8px;font-size:0.78rem;color:var(--text-muted)">在新会话中手动插入之前章节的内容摘要，用于压缩上文长度。此内容会作为「前情概述」发送给 AI。</p>
+          <textarea id="mainlinePrefixTextarea" class="mainline-prefix-textarea" rows="6" placeholder="在此粘贴或编辑之前章节的内容摘要...&#10;&#10;例如：第一卷讲述了主角从废柴少年成长为修仙者的故事。他在偶然间获得了上古传承..."></textarea>
+          <div class="mainline-prefix-info">
+            <span id="mainlinePrefixCharCount" class="char-count"></span>
+          </div>
+        </div>
+
         <!-- 主线概述 -->
         <div class="mainline-summary-section">
           <div class="mainline-section-header">

@@ -116,6 +116,7 @@ class Session(BaseModel):
     mainline: list[MainlineEntry] = Field(default_factory=list, description="文章主线条目列表")
     mainline_summary: str = Field(default="", description="主线内容的LLM概述，作为AI上文提示")
     mainline_summary_hash: str = Field(default="", description="生成概述时主线内容的哈希，用于判断是否需要重新生成")
+    mainline_prefix: str = Field(default="", description="手动插入的前情概述，用于在新会话中压缩之前章节的内容")
 
     # 主线状态快照（收入主线时冻结的"正式"状态）
     mainline_characters: dict[str, CharacterState] = Field(default_factory=dict, description="主线快照：角色状态")
@@ -188,6 +189,11 @@ class UpdateMainlineStateRequest(BaseModel):
     world_setting: Optional[WorldSetting] = None
     session_config: Optional[SessionConfig] = None
     locations: Optional[dict[str, LocationSetting]] = None
+
+
+class UpdateMainlinePrefixRequest(BaseModel):
+    """更新主线前情概述"""
+    prefix: str = Field(..., description="手动插入的前情概述文本")
 
 
 class ReorderMainlineRequest(BaseModel):

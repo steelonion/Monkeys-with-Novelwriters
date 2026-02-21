@@ -154,3 +154,43 @@
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* 前情概述 */
+.mainline-prefix-section {
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.mainline-prefix-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  font-family: var(--font-serif);
+  transition: border-color var(--transition);
+  box-sizing: border-box;
+}
+.mainline-prefix-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.mainline-prefix-textarea::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+}
+.mainline-prefix-info {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.mainline-prefix-info .char-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}

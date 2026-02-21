@@ -255,6 +255,7 @@ function renderSession(session) {
   $('#mainlinePanel').style.display = '';
   currentMainline = session.mainline || [];
   currentMainlineSummary = session.mainline_summary || '';
+  currentMainlinePrefix = session.mainline_prefix || '';
   renderMainlinePanel();
 
   // 故事区
@@ -274,6 +275,7 @@ function showWelcome() {
   $('#btnClearHistory').disabled = true;
   currentMainline = [];
   currentMainlineSummary = '';
+  currentMainlinePrefix = '';
   $('#statePanel').style.display = 'none';
   $('#storyArea').innerHTML = `
     <div class="story-welcome">

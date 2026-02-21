@@ -27,7 +27,14 @@ function renderMainlinePanel() {
   countEl.style.display = count > 0 ? '' : 'none';
 
   const preview = $('#mainlineSummaryPreview');
-  if (currentMainlineSummary) {
+  if (currentMainlinePrefix) {
+    const prefixHint = '[前情概述已设置] ';
+    const summaryText = currentMainlineSummary || '';
+    const combined = prefixHint + summaryText;
+    preview.textContent = combined.length > 120
+      ? combined.slice(0, 120) + '...'
+      : combined;
+  } else if (currentMainlineSummary) {
     preview.textContent = currentMainlineSummary.length > 120
       ? currentMainlineSummary.slice(0, 120) + '...'
       : currentMainlineSummary;
@@ -45,6 +52,13 @@ function toggleMainlineView() {
 }
 
 function renderMainlineModal() {
+  // 前情概述
+  const prefixTextarea = $('#mainlinePrefixTextarea');
+  if (prefixTextarea) {
+    prefixTextarea.value = currentMainlinePrefix || '';
+    updatePrefixCharCount();
+  }
+
   const summaryEl = $('#mainlineSummaryContent');
   summaryEl.textContent = currentMainlineSummary || '暂无概述';
 
@@ -178,3 +192,48 @@ async function regenerateMainlineSummary() {
     stopTaskPolling();
   }
 }
+
+// ─────────── 前情概述（手动插入的上文概述） ───────────
+
+function updatePrefixCharCount() {
+  const textarea = $('#mainlinePrefixTextarea');
+  const countEl = $('#mainlinePrefixCharCount');
+  if (textarea && countEl) {
+    const len = (textarea.value || '').length;
+    countEl.textContent = len > 0 ? `${len} 字` : '';
+  }
+}
+
+async function saveMainlinePrefix() {
+  if (!currentSessionId) { showToast('请先选择一个会话'); return; }
+
+  const textarea = $('#mainlinePrefixTextarea');
+  const prefix = textarea ? textarea.value.trim() : '';
+  const btn = $('#btnSavePrefix');
+
+  btn.disabled = true;
+  btn.textContent = '💾 保存中...';
+
+  try {
+    await apiJson(`/api/session/${currentSessionId}/mainline/prefix`, {
+      method: 'PUT',
+      body: JSON.stringify({ prefix }),
+    });
+    currentMainlinePrefix = prefix;
+    renderMainlinePanel();
+    showToast('前情概述已保存');
+  } catch (e) {
+    showToast('保存失败: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 保存';
+  }
+}
+
+// 绑定字数统计事件
+document.addEventListener('DOMContentLoaded', () => {
+  const textarea = document.getElementById('mainlinePrefixTextarea');
+  if (textarea) {
+    textarea.addEventListener('input', updatePrefixCharCount);
+  }
+});

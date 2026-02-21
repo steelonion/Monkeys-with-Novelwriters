@@ -13,7 +13,7 @@ from .models import (
     GenerateRequest, GenerateResponse, NewSessionRequest,
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
     AddMainlineRequest, UpdateMainlineEntryRequest, ReorderMainlineRequest,
-    UpdateMainlineStateRequest,
+    UpdateMainlineStateRequest, UpdateMainlinePrefixRequest,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
 from .ai_service import ai_service, get_active_tasks, compute_auto_summary_length
@@ -307,6 +307,7 @@ async def get_mainline(session_id: str):
     return {
         "mainline": [e.model_dump() for e in session.mainline],
         "mainline_summary": session.mainline_summary,
+        "mainline_prefix": session.mainline_prefix,
         "needs_summary_update": session_manager.mainline_needs_summary_update(session),
     }
 
@@ -454,6 +455,20 @@ async def regenerate_mainline_summary(session_id: str):
     return {
         "mainline_summary": summary,
         "mainline": [e.model_dump() for e in session.mainline],
+    }
+
+
+@app.put("/api/session/{session_id}/mainline/prefix")
+async def update_mainline_prefix(session_id: str, req: UpdateMainlinePrefixRequest):
+    """更新主线前情概述（手动插入的上文概述）"""
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    session_manager.update_mainline_prefix(session_id, req.prefix)
+    return {
+        "mainline_prefix": req.prefix,
+        "status": "ok",
     }
 
 

@@ -487,6 +487,21 @@ class SessionManager:
         self._save_to_disk(session)
         return True
 
+    def update_mainline_prefix(
+        self,
+        session_id: str,
+        prefix: str,
+    ) -> bool:
+        """更新主线前情概述（手动插入的上文概述）"""
+        session = self.get_session(session_id)
+        if not session:
+            return False
+
+        session.mainline_prefix = prefix
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return True
+
     # ─────────────── 导出为文件 ───────────────
 
     def export_mainline(self, session_id: str) -> str | None:
