@@ -59,7 +59,7 @@ def _debug_log(label: str, messages: list[dict], response_text: str, **extra):
 # ────────────────────────────── 提示词模板 ──────────────────────────────
 
 SYSTEM_PROMPT_TEMPLATE = """\
-你是一位专业的小说创作助手。你需要根据用户提供的设定和提示，续写高质量的小说片段。
+你是一位专业的小说创作助手。你需要根据用户提供的设定和提示，{task_description}。
 
 ## 当前小说设定
 - 标题：{title}
@@ -89,8 +89,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
 1. 保持角色性格一致性，行为符合角色设定。
 2. 遵守世界观规则，不要违背已建立的设定。
 3. 文笔流畅，情节紧凑，富有画面感。
-4. 续写内容要自然衔接上文。
-5. 本次续写的小说正文部分建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。
+{mode_specific_rules}
 
 ## 输出格式要求（必须严格遵守）
 你的回复必须分为两个部分，用特殊分隔符分开：
@@ -303,18 +302,25 @@ def _build_locations_block(locations: dict[str, LocationSetting]) -> str:
     return "\n".join(lines)
 
 
-def _build_recent_story(history, max_steps: int = 3) -> str:
-    """从历史记录提取最近的故事片段作为上文（包含用户指令和AI输出的完整对话）"""
+def _build_recent_story(history, max_steps: int = 3, exclude_last: bool = False) -> str:
+    """从历史记录提取最近的故事片段作为上文（包含用户指令和AI输出的完整对话）
+    
+    exclude_last: 调整模式下应为 True，避免要调整的内容同时出现在上文和用户消息中
+    """
     if not history:
         return "（这是故事的开端，暂无前文）"
 
-    recent = history[-max_steps:]
+    entries = history[:-1] if exclude_last and len(history) > 1 else ([] if exclude_last else history)
+    if not entries:
+        return "（这是故事的开端，暂无前文）"
+
+    recent = entries[-max_steps:]
     parts = []
     for step in recent:
         segment = ""
         if step.user_prompt:
             segment += f"[用户指令] {step.user_prompt}\n\n"
-        segment += f"[AI续写]\n{step.generated_text}"
+        segment += f"[AI输出]\n{step.generated_text}"
         parts.append(segment)
     return "\n\n---\n\n".join(parts)
 
@@ -331,8 +337,11 @@ def _build_custom_field_defs_hint(sc: SessionConfig) -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt(session: Session, suggested_length: int = 1000) -> str:
-    """根据会话状态构建完整的系统提示词"""
+def build_system_prompt(session: Session, suggested_length: int = 1000, mode: str = "continue") -> str:
+    """根据会话状态构建完整的系统提示词
+    
+    mode: "continue" = 续写模式, "adjust" = 调整模式
+    """
     ws = session.world_setting
     sc = session.session_config
 
@@ -355,6 +364,26 @@ def build_system_prompt(session: Session, suggested_length: int = 1000) -> str:
     # 构建自定义字段定义提示
     custom_field_defs_hint = _build_custom_field_defs_hint(sc)
 
+    # 模式相关文本
+    is_adjust = (mode == "adjust")
+
+    if is_adjust:
+        task_description = "根据用户的调整要求，对指定的小说片段进行修改和重写"
+        mode_specific_rules = (
+            f"4. 你的任务是**修改和重写**用户指定的片段，而不是在其后面续写新内容。\n"
+            f"5. 修改后的片段应保持大致剧情走向不变，但根据用户的调整要求进行改写。\n"
+            f"6. 输出的正文是对原片段的**替换**，不是追加。建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
+        )
+    else:
+        task_description = "续写高质量的小说片段"
+        mode_specific_rules = (
+            f"4. 续写内容要自然衔接上文。\n"
+            f"5. 本次续写的小说正文部分建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
+        )
+
+    # 调整模式下排除最后一步（避免与用户消息中重复）
+    recent_story = _build_recent_story(session.history, exclude_last=is_adjust)
+
     return SYSTEM_PROMPT_TEMPLATE.format(
         title=ws.title or "未定",
         genre=ws.genre or "未定",
@@ -367,9 +396,10 @@ def build_system_prompt(session: Session, suggested_length: int = 1000) -> str:
         characters_block=_build_characters_block(session.characters),
         mainline_prefix=mainline_prefix,
         mainline_summary=mainline_summary,
-        recent_story=_build_recent_story(session.history),
+        recent_story=recent_story,
         custom_field_defs_hint=custom_field_defs_hint,
-        suggested_length=suggested_length,
+        task_description=task_description,
+        mode_specific_rules=mode_specific_rules,
     )
 
 
@@ -536,16 +566,16 @@ class AIService:
         if not self.is_configured:
             raise RuntimeError("AI 服务未配置，请先设置 API Key")
 
-        system_prompt = build_system_prompt(session, suggested_length=suggested_length)
+        system_prompt = build_system_prompt(session, suggested_length=suggested_length, mode=mode)
 
         if mode == "adjust" and session.history:
             last_step = session.history[-1]
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": (
-                    f"以下是你上次输出的小说片段：\n\n{last_step.generated_text}\n\n"
+                    f"以下是你上次输出的小说片段，请对其进行修改和重写：\n\n{last_step.generated_text}\n\n"
                     f"---\n\n"
-                    f"请根据以下要求，在保持大致剧情走向不变的前提下，重新输出一个修改后的完整片段（不是在上面的片段后面续写，而是替换它）。\n\n"
+                    f"请根据以下调整要求，在保持大致剧情走向不变的前提下，重新输出一个修改后的完整片段。注意：你需要输出的是对上述片段的**替换内容**，而不是在它后面追加新内容。\n\n"
                     f"调整要求：{user_prompt}"
                 )},
             ]
