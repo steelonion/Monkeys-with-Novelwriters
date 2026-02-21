@@ -636,6 +636,80 @@ class AIService:
         finally:
             _active_tasks -= 1
 
+    async def generate_chapter_prefix(
+        self,
+        old_prefix: str,
+        old_summary: str,
+        world_setting: WorldSetting | None = None,
+        max_length: int = 1500,
+    ) -> str:
+        """
+        将旧会话的前情概述和主线概述合并总结，生成新章节的前情概述。
+        用于"新开章节"功能，压缩之前所有章节的内容为一段简洁的前情概述。
+        """
+        if not self.is_configured:
+            raise RuntimeError("AI 服务未配置，请先设置 API Key")
+
+        # 合并旧的前情概述和主线概述
+        parts = []
+        if old_prefix and old_prefix.strip():
+            parts.append(f"【之前章节的前情概述】\n{old_prefix.strip()}")
+        if old_summary and old_summary.strip():
+            parts.append(f"【本章主线概述】\n{old_summary.strip()}")
+
+        if not parts:
+            return ""
+
+        merged_text = "\n\n".join(parts)
+
+        min_length = max(200, max_length // 3)
+
+        context = ""
+        if world_setting:
+            context = f"小说标题：{world_setting.title or '未定'}\n类型：{world_setting.genre or '未定'}\n\n"
+
+        system_prompt = f"""\
+你是一个小说剧情概述助手。用户将提供一部小说之前所有章节的内容摘要，包括前情概述和最新章节的主线概述。
+
+请你将这些内容合并总结为一段完整、连贯的前情概述，用于新章节写作时作为上文背景。概述应该：
+1. 完整涵盖之前所有章节的关键剧情脉络
+2. 记录重要事件、转折点和角色关系变化
+3. 保持时间线/剧情发展的逻辑顺序
+4. 简洁精炼，不遗漏核心信息
+5. 字数控制在 {min_length}-{max_length} 字之间
+6. 以第三人称叙述，语言流畅自然
+
+只输出概述文本，不要输出额外的解释或标记。"""
+
+        user_content = f"{context}以下是需要合并总结的内容：\n\n{merged_text}"
+
+        dynamic_max_tokens = max(500, int(max_length * 2.5))
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+
+        global _active_tasks
+        _active_tasks += 1
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=dynamic_max_tokens,
+            )
+
+            result = (response.choices[0].message.content or "").strip()
+
+            _debug_log("chapter_prefix", messages, result,
+                       model=self.model, temperature=0.3, max_tokens=dynamic_max_tokens,
+                       max_length=max_length)
+
+            return result
+        finally:
+            _active_tasks -= 1
+
     async def parse_text_to_session(
         self,
         raw_text: str,

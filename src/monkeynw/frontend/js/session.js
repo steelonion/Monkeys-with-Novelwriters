@@ -245,6 +245,7 @@ function renderSession(session) {
   $('#inputArea').style.display = '';
   $('#btnUndo').disabled = !session.history || session.history.length === 0;
   $('#btnClearHistory').disabled = !session.history || session.history.length === 0;
+  $('#btnNewChapter').disabled = false;
 
   // 写作配置面板
   const sidebarConfig = session.mainline_session_config || session.session_config;
@@ -273,6 +274,7 @@ function showWelcome() {
   $('#mainlinePanel').style.display = 'none';
   $('#btnUndo').disabled = true;
   $('#btnClearHistory').disabled = true;
+  $('#btnNewChapter').disabled = true;
   currentMainline = [];
   currentMainlineSummary = '';
   currentMainlinePrefix = '';
@@ -396,5 +398,51 @@ function toggleSummaryAutoMode() {
     hint.style.display = '';
   } else {
     hint.style.display = 'none';
+  }
+}
+
+// ─────────── 新开章节 ───────────
+
+function startNewChapter() {
+  if (!currentSessionId) { showToast('请先选择一个会话'); return; }
+  // 重置 modal 状态
+  $('#newChapterName').value = '';
+  const statusEl = $('#newChapterStatus');
+  statusEl.style.display = 'none';
+  statusEl.textContent = '';
+  openModal('newChapterModal');
+}
+
+async function confirmNewChapter() {
+  if (!currentSessionId) return;
+
+  const name = $('#newChapterName').value.trim() || null;
+  const btn = $('#btnConfirmNewChapter');
+  const statusEl = $('#newChapterStatus');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 创建中...';
+  statusEl.className = 'status-badge';
+  statusEl.style.display = 'none';
+  startTaskPolling();
+
+  try {
+    const newSession = await apiJson(`/api/session/${currentSessionId}/new-chapter`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+
+    closeModal('newChapterModal');
+    showToast('新章节创建成功');
+    await loadSessions();
+    selectSession(newSession.session_id);
+  } catch (e) {
+    statusEl.className = 'status-badge error';
+    statusEl.textContent = '创建失败: ' + e.message;
+    statusEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📖 确认新开章节';
+    stopTaskPolling();
   }
 }

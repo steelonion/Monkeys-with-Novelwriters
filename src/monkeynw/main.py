@@ -14,6 +14,7 @@ from .models import (
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
     AddMainlineRequest, UpdateMainlineEntryRequest, ReorderMainlineRequest,
     UpdateMainlineStateRequest, UpdateMainlinePrefixRequest,
+    NewChapterRequest,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
 from .ai_service import ai_service, get_active_tasks, compute_auto_summary_length
@@ -352,6 +353,20 @@ async def add_to_mainline(session_id: str, req: AddMainlineRequest):
     }
 
 
+@app.put("/api/session/{session_id}/mainline/prefix")
+async def update_mainline_prefix(session_id: str, req: UpdateMainlinePrefixRequest):
+    """更新主线前情概述（手动插入的上文概述）"""
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    session_manager.update_mainline_prefix(session_id, req.prefix)
+    return {
+        "mainline_prefix": req.prefix,
+        "status": "ok",
+    }
+
+
 @app.delete("/api/session/{session_id}/mainline/{entry_id}")
 async def remove_from_mainline(session_id: str, entry_id: str):
     """从主线中移除条目"""
@@ -458,18 +473,53 @@ async def regenerate_mainline_summary(session_id: str):
     }
 
 
-@app.put("/api/session/{session_id}/mainline/prefix")
-async def update_mainline_prefix(session_id: str, req: UpdateMainlinePrefixRequest):
-    """更新主线前情概述（手动插入的上文概述）"""
+# ────────────────────────────── 新开章节 ──────────────────────────────
+
+@app.post("/api/session/{session_id}/new-chapter")
+async def start_new_chapter(session_id: str, req: NewChapterRequest):
+    """新开章节：基于当前会话创建新会话，合并前情概述和主线概述作为新会话的前情概述"""
+    if not ai_service.is_configured:
+        raise HTTPException(status_code=400, detail="请先配置 API Key")
+
     session = session_manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
-    session_manager.update_mainline_prefix(session_id, req.prefix)
-    return {
-        "mainline_prefix": req.prefix,
-        "status": "ok",
-    }
+    # 合并前情概述和主线概述并用 LLM 总结
+    old_prefix = session.mainline_prefix or ""
+    old_summary = session.mainline_summary or ""
+
+    new_prefix = ""
+    if old_prefix.strip() or old_summary.strip():
+        try:
+            # 计算合适的概述长度：取合并文本长度的 ~30%，下限800上限3000
+            merged_len = len(old_prefix) + len(old_summary)
+            target_len = max(800, min(3000, int(merged_len * 0.3)))
+            new_prefix = await ai_service.generate_chapter_prefix(
+                old_prefix=old_prefix,
+                old_summary=old_summary,
+                world_setting=session.mainline_world_setting or session.world_setting,
+                max_length=target_len,
+            )
+        except Exception as e:
+            # LLM 总结失败时回退：直接拼接
+            parts = []
+            if old_prefix.strip():
+                parts.append(old_prefix.strip())
+            if old_summary.strip():
+                parts.append(old_summary.strip())
+            new_prefix = "\n\n".join(parts)
+
+    # 创建新章节会话
+    new_session = session_manager.create_new_chapter(
+        old_session_id=session_id,
+        new_prefix=new_prefix,
+        new_name=req.name,
+    )
+    if not new_session:
+        raise HTTPException(status_code=400, detail="创建新章节失败")
+
+    return new_session.model_dump()
 
 
 # ────────────────────────────── 导出 ──────────────────────────────────

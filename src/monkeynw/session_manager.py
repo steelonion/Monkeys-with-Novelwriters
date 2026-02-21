@@ -502,6 +502,80 @@ class SessionManager:
         self._save_to_disk(session)
         return True
 
+    # ─────────────── 新开章节 ───────────────
+
+    def create_new_chapter(
+        self,
+        old_session_id: str,
+        new_prefix: str,
+        new_name: str | None = None,
+    ) -> Session | None:
+        """基于旧会话新开一个章节。
+
+        - 复制旧会话的主线状态（角色/世界/配置/地点）作为新会话的初始状态
+        - 使用生成好的 new_prefix 作为新会话的前情概述
+        - 新会话的主线和历史为空
+
+        Args:
+            old_session_id: 旧会话 ID
+            new_prefix: 已生成的新章节前情概述文本
+            new_name: 新会话名称（默认在旧会话名后加"（续）"）
+
+        Returns:
+            新创建的 Session，失败返回 None
+        """
+        old_session = self.get_session(old_session_id)
+        if not old_session:
+            return None
+
+        # 确定新会话名称
+        if not new_name:
+            new_name = old_session.name + "（续）"
+
+        # 从旧会话的主线状态深拷贝
+        new_characters = {
+            name: char.model_copy(deep=True)
+            for name, char in old_session.mainline_characters.items()
+        } if old_session.mainline_characters else {
+            name: char.model_copy(deep=True)
+            for name, char in old_session.characters.items()
+        }
+
+        new_world = (
+            old_session.mainline_world_setting.model_copy(deep=True)
+            if old_session.mainline_world_setting
+            else old_session.world_setting.model_copy(deep=True)
+        )
+
+        new_session_config = (
+            old_session.mainline_session_config.model_copy(deep=True)
+            if old_session.mainline_session_config
+            else old_session.session_config.model_copy(deep=True)
+        )
+
+        new_locations = {
+            name: loc.model_copy(deep=True)
+            for name, loc in old_session.mainline_locations.items()
+        } if old_session.mainline_locations else {
+            name: loc.model_copy(deep=True)
+            for name, loc in old_session.locations.items()
+        }
+
+        # 创建新会话
+        new_session = self.create_session(
+            name=new_name,
+            world_setting=new_world,
+            session_config=new_session_config,
+            characters=new_characters,
+            locations=new_locations,
+        )
+
+        # 设置前情概述
+        new_session.mainline_prefix = new_prefix
+        self._save_to_disk(new_session)
+
+        return new_session
+
     # ─────────────── 导出为文件 ───────────────
 
     def export_mainline(self, session_id: str) -> str | None:

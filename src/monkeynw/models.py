@@ -201,6 +201,11 @@ class ReorderMainlineRequest(BaseModel):
     entry_ids: list[str] = Field(..., description="按新顺序排列的条目ID列表")
 
 
+class NewChapterRequest(BaseModel):
+    """新开章节请求"""
+    name: Optional[str] = Field(default=None, description="新章节会话名称，默认在旧名称后加‘（续）’")
+
+
 class APIConfigRequest(BaseModel):
     """API配置"""
     api_key: str

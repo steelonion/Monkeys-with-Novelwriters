@@ -80,6 +80,7 @@
       <div class="topbar-actions">
         <button class="btn btn-ghost" id="btnUndo" onclick="undoStep()" disabled title="撤销">↩ 撤销</button>
         <button class="btn btn-ghost" id="btnClearHistory" onclick="clearHistory()" disabled title="清理对话历史，保留设定和主线">🧹 清理对话</button>
+        <button class="btn btn-ghost" id="btnNewChapter" onclick="startNewChapter()" disabled title="新开章节：将当前主线状态和概述带入新会话">📖 新开章节</button>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题">🌙</button>
       </div>
     </header>
@@ -360,6 +361,32 @@
 
   <!-- Toast -->
   <div id="toast" class="toast"></div>
+
+  <!-- ═══════════════════ 新开章节确认 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="newChapterModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📖 新开章节</h3>
+        <button class="btn btn-icon" onclick="closeModal('newChapterModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:12px;line-height:1.6">将基于当前会话创建一个新章节会话：</p>
+        <ul style="margin:0 0 16px 20px;line-height:1.8;color:var(--text-secondary)">
+          <li>复制当前主线状态（角色、世界设定、地点）到新会话</li>
+          <li>将「前情概述」和「主线概述」合并总结为新会话的前情概述</li>
+          <li>新会话的主线和对话历史为空，从新章节开始写作</li>
+        </ul>
+        <label>新章节会话名称
+          <input type="text" id="newChapterName" placeholder="留空则自动在原名称后加（续）" />
+        </label>
+        <div id="newChapterStatus" class="status-badge" style="display:none;margin-top:8px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('newChapterModal')">取消</button>
+        <button class="btn btn-primary" id="btnConfirmNewChapter" onclick="confirmNewChapter()">📖 确认新开章节</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ═══════════════════ 编辑角色状态 Modal ═══════════════════ -->
   <div class="modal-overlay" id="editCharStateModal">
