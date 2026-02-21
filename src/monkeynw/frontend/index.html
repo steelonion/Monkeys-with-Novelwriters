@@ -64,6 +64,7 @@
       <div class="panel-title">
         <i class="icon">📌</i> 文章主线
         <span id="mainlineCount" class="mainline-count"></span>
+        <span id="mainlineTotalWords" class="mainline-word-count"></span>
         <button class="btn btn-sm btn-ghost" onclick="exportMainline()" title="导出主线为TXT">📥 导出</button>
         <button class="btn btn-sm btn-ghost" onclick="toggleMainlineView()" title="展开/收起主线详情">📋 查看</button>
       </div>
@@ -349,7 +350,7 @@
         <!-- 主线条目列表 -->
         <div class="mainline-entries-section">
           <div class="mainline-section-header">
-            <h4>📖 主线内容 (<span id="mainlineEntryCount">0</span> 段)</h4>
+            <h4>📖 主线内容 (<span id="mainlineEntryCount">0</span> 段 · <span id="mainlineModalTotalWords">0</span> 字)</h4>
           </div>
           <div id="mainlineEntries" class="mainline-entries">
             <p class="empty-hint">暂无主线内容，在生成的文本上点击「📌 收入主线」添加</p>

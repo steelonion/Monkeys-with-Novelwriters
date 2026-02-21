@@ -12,6 +12,14 @@
   margin-left: 4px;
 }
 
+.mainline-word-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 4px;
+  font-weight: 400;
+}
+.mainline-word-count:empty { display: none; }
+
 .mainline-summary-preview {
   padding: 0 20px 14px;
   font-size: 0.8rem;

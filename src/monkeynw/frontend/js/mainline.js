@@ -20,11 +20,22 @@ async function exportMainline() {
   } catch (e) { showToast('导出失败: ' + e.message); }
 }
 
+function getMainlineTotalWords() {
+  return currentMainline.reduce((sum, e) => sum + e.text.length, 0);
+}
+
 function renderMainlinePanel() {
   const count = currentMainline.length;
+  const totalWords = getMainlineTotalWords();
   const countEl = $('#mainlineCount');
   countEl.textContent = count > 0 ? count : '';
   countEl.style.display = count > 0 ? '' : 'none';
+
+  const wordsEl = $('#mainlineTotalWords');
+  if (wordsEl) {
+    wordsEl.textContent = totalWords > 0 ? `${totalWords} 字` : '';
+    wordsEl.style.display = totalWords > 0 ? '' : 'none';
+  }
 
   const preview = $('#mainlineSummaryPreview');
   if (currentMainlinePrefix) {
@@ -64,6 +75,11 @@ function renderMainlineModal() {
 
   const countEl = $('#mainlineEntryCount');
   countEl.textContent = currentMainline.length;
+
+  const modalWordsEl = $('#mainlineModalTotalWords');
+  if (modalWordsEl) {
+    modalWordsEl.textContent = getMainlineTotalWords();
+  }
 
   const container = $('#mainlineEntries');
   if (!currentMainline.length) {
