@@ -164,6 +164,30 @@ def _build_mainline_summary_prompt(max_length: int = 800) -> str:
 # 保留一个默认常量供向后兼容
 MAINLINE_SUMMARY_PROMPT = _build_mainline_summary_prompt(800)
 
+
+def compute_auto_summary_length(total_chars: int) -> int:
+    """根据主线总字数自动计算概述目标字数。
+
+    使用幂律衰减的摘要比例（抽象式摘要业界最佳实践）：
+    - 短文本（≤3000字）：~25%  → 保留尽可能多的细节
+    - 中等文本（~10000字）：~15% → 平衡信息量与简洁性
+    - 长文本（~30000字）：~10%  → 提炼关键剧情节点
+    - 超长文本（~80000字）：~6% → 仅保留核心主线脉络
+    - 极长文本（>100000字）：~5% → 高度压缩
+
+    下限 800 字（保证基本可用性），上限 5000 字（避免 token 过长）。
+    """
+    import math
+    if total_chars <= 0:
+        return 800
+    # 幂律衰减：ratio = 0.25 * (3000 / total)^0.4，total ≤ 3000 时 ratio = 0.25
+    ratio = 0.25 * (min(1.0, 3000 / total_chars) ** 0.4) if total_chars > 3000 else 0.25
+    target = int(total_chars * ratio)
+    # 按 100 字取整
+    target = round(target / 100) * 100
+    return max(800, min(5000, target))
+
+
 PARSE_TEXT_PROMPT = """\
 你是一个文本解析助手。用户会提供一段关于小说设定的自由文本，其中可能包含世界观、角色设定、剧情简介、写作风格等信息。
 

@@ -145,6 +145,42 @@ label textarea::placeholder { color: var(--text-muted); }
   line-height: 1.5;
 }
 
+/* ─────────── 概述字数自动/手动切换 ─────────── */
+.summary-length-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.summary-length-row .toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  user-select: none;
+}
+.summary-length-row .toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+.summary-length-row input[type="number"] {
+  width: 100px;
+  flex-shrink: 0;
+}
+.summary-length-row input[type="number"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.summary-auto-hint {
+  font-size: 0.78rem;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
 /* ─────────── Modal ─────────── */
 .modal-overlay {
   position: fixed;

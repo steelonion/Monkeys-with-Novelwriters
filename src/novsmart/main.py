@@ -16,7 +16,7 @@ from .models import (
     UpdateMainlineStateRequest,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
-from .ai_service import ai_service, get_active_tasks
+from .ai_service import ai_service, get_active_tasks, compute_auto_summary_length
 from .session_manager import session_manager
 
 app = FastAPI(title="Monkeys-with-Novelwriters - AI小说写作框架", version="1.0.0")
@@ -34,6 +34,15 @@ app.add_middleware(
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+
+def _resolve_summary_max_length(session) -> int:
+    """根据会话配置解析实际的概述字数上限：自动模式按主线总字数计算，手动模式用用户设定值"""
+    sc = session.session_config
+    if sc.summary_auto_length:
+        total_chars = sum(len(e.text) for e in session.mainline)
+        return compute_auto_summary_length(total_chars)
+    return sc.summary_max_length
 
 
 # ────────────────────────────── 任务状态 ──────────────────────────────
@@ -329,7 +338,7 @@ async def add_to_mainline(session_id: str, req: AddMainlineRequest):
         try:
             summary = await ai_service.generate_mainline_summary(
                 session.mainline, session.world_setting,
-                summary_max_length=session.session_config.summary_max_length,
+                summary_max_length=_resolve_summary_max_length(session),
             )
             session_manager.update_mainline_summary(session_id, summary)
         except Exception:
@@ -357,7 +366,7 @@ async def remove_from_mainline(session_id: str, entry_id: str):
         try:
             summary = await ai_service.generate_mainline_summary(
                 session.mainline, session.world_setting,
-                summary_max_length=session.session_config.summary_max_length,
+                summary_max_length=_resolve_summary_max_length(session),
             )
             session_manager.update_mainline_summary(session_id, summary)
         except Exception:
@@ -393,7 +402,7 @@ async def update_mainline_entry(session_id: str, entry_id: str, req: UpdateMainl
         try:
             summary = await ai_service.generate_mainline_summary(
                 session.mainline, session.world_setting,
-                summary_max_length=session.session_config.summary_max_length,
+                summary_max_length=_resolve_summary_max_length(session),
             )
             session_manager.update_mainline_summary(session_id, summary)
         except Exception:
@@ -436,7 +445,7 @@ async def regenerate_mainline_summary(session_id: str):
     try:
         summary = await ai_service.generate_mainline_summary(
             session.mainline, session.world_setting,
-            summary_max_length=session.session_config.summary_max_length,
+            summary_max_length=_resolve_summary_max_length(session),
         )
         session_manager.update_mainline_summary(session_id, summary)
     except Exception as e:
