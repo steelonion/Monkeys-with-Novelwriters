@@ -65,6 +65,7 @@ class SessionConfig(BaseModel):
     current_arc: str = Field(default="", description="当前剧情弧")
     custom_instructions: str = Field(default="", description="用户自定义写作指令/风格要求")
     custom_field_defs: list[CustomFieldDef] = Field(default_factory=list, description="角色自定义字段定义列表")
+    summary_max_length: int = Field(default=800, ge=800, le=5000, description="主线概述的目标字数上限")
 
 
 # ────────────────────────────── 历史步骤 ──────────────────────────────

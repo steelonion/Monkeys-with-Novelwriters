@@ -328,7 +328,8 @@ async def add_to_mainline(session_id: str, req: AddMainlineRequest):
     if needs_update and ai_service.is_configured:
         try:
             summary = await ai_service.generate_mainline_summary(
-                session.mainline, session.world_setting
+                session.mainline, session.world_setting,
+                summary_max_length=session.session_config.summary_max_length,
             )
             session_manager.update_mainline_summary(session_id, summary)
         except Exception:
@@ -355,7 +356,8 @@ async def remove_from_mainline(session_id: str, entry_id: str):
     if session.mainline and session_manager.mainline_needs_summary_update(session) and ai_service.is_configured:
         try:
             summary = await ai_service.generate_mainline_summary(
-                session.mainline, session.world_setting
+                session.mainline, session.world_setting,
+                summary_max_length=session.session_config.summary_max_length,
             )
             session_manager.update_mainline_summary(session_id, summary)
         except Exception:
@@ -390,7 +392,8 @@ async def update_mainline_entry(session_id: str, entry_id: str, req: UpdateMainl
     if req.text is not None and session_manager.mainline_needs_summary_update(session) and ai_service.is_configured:
         try:
             summary = await ai_service.generate_mainline_summary(
-                session.mainline, session.world_setting
+                session.mainline, session.world_setting,
+                summary_max_length=session.session_config.summary_max_length,
             )
             session_manager.update_mainline_summary(session_id, summary)
         except Exception:
@@ -432,7 +435,8 @@ async def regenerate_mainline_summary(session_id: str):
 
     try:
         summary = await ai_service.generate_mainline_summary(
-            session.mainline, session.world_setting
+            session.mainline, session.world_setting,
+            summary_max_length=session.session_config.summary_max_length,
         )
         session_manager.update_mainline_summary(session_id, summary)
     except Exception as e:

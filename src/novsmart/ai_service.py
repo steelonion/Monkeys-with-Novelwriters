@@ -144,8 +144,11 @@ SYSTEM_PROMPT_TEMPLATE = """\
 """
 
 
-MAINLINE_SUMMARY_PROMPT = """\
-你是一个小说剧情概述助手。以下是一部小说的“文章主线”内容，包含用户已确认的正式文本片段。
+def _build_mainline_summary_prompt(max_length: int = 800) -> str:
+    """构建主线概述提示词，支持自定义字数上限"""
+    min_length = max(100, max_length // 3)
+    return f"""\
+你是一个小说剧情概述助手。以下是一部小说的"文章主线"内容，包含用户已确认的正式文本片段。
 
 请你对这些内容进行简洁概述，作为后续写作的上文提示。概述应该：
 1. 包含主要剧情线的进展
@@ -153,10 +156,13 @@ MAINLINE_SUMMARY_PROMPT = """\
 3. 反映角色关系的变化
 4. 保持简洁，但不遗漏重要信息
 5. 按时间线/剧情发展顺序组织
-6. 字数控制在 300-800 字之间
+6. 字数控制在 {min_length}-{max_length} 字之间
 
 只输出概述文本，不要输出额外的解释或标记。
 """
+
+# 保留一个默认常量供向后兼容
+MAINLINE_SUMMARY_PROMPT = _build_mainline_summary_prompt(800)
 
 PARSE_TEXT_PROMPT = """\
 你是一个文本解析助手。用户会提供一段关于小说设定的自由文本，其中可能包含世界观、角色设定、剧情简介、写作风格等信息。
@@ -545,6 +551,7 @@ class AIService:
         self,
         mainline_entries: list[MainlineEntry],
         world_setting: WorldSetting | None = None,
+        summary_max_length: int = 800,
     ) -> str:
         """
         调用 LLM 生成主线内容的概述。
@@ -569,8 +576,12 @@ class AIService:
 
         user_content = f"{context}以下是文章主线内容：\n\n{mainline_text}"
 
+        summary_prompt = _build_mainline_summary_prompt(summary_max_length)
+        # 根据字数上限动态调整 max_tokens（中文约 1.5 token/字）
+        dynamic_max_tokens = max(500, int(summary_max_length * 2.5))
+
         messages = [
-            {"role": "system", "content": MAINLINE_SUMMARY_PROMPT},
+            {"role": "system", "content": summary_prompt},
             {"role": "user", "content": user_content},
         ]
 
@@ -581,13 +592,14 @@ class AIService:
                 model=self.model,
                 messages=messages,
                 temperature=0.3,
-                max_tokens=1500,
+                max_tokens=dynamic_max_tokens,
             )
 
             result = (response.choices[0].message.content or "").strip()
 
             _debug_log("mainline_summary", messages, result,
-                       model=self.model, temperature=0.3, max_tokens=1500)
+                       model=self.model, temperature=0.3, max_tokens=dynamic_max_tokens,
+                       summary_max_length=summary_max_length)
 
             return result
         finally:

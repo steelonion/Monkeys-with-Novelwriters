@@ -59,6 +59,7 @@ async function createSession() {
       current_arc: $('#newArc').value.trim(),
       custom_instructions: $('#newInstructions').value.trim(),
       custom_field_defs: getCustomFieldDefs(),
+      summary_max_length: parseInt($('#newSummaryMaxLength').value) || 800,
     },
     characters: {},
   };
@@ -139,6 +140,7 @@ async function smartParseAndFill() {
 
 function clearSessionFormFields() {
   ['#newSessionName','#newTitle','#newGenre','#newBackground','#newRules','#newArc','#newInstructions','#smartText'].forEach(s => $(s).value = '');
+  $('#newSummaryMaxLength').value = 800;
   $('#smartParseStatus').style.display = 'none';
   $('#customFieldDefsList').innerHTML = '';
 }
@@ -161,6 +163,7 @@ async function openEditSessionModal() {
     $('#newRules').value = (ws.rules || []).join('\n');
     $('#newArc').value = sc.current_arc || '';
     $('#newInstructions').value = sc.custom_instructions || '';
+    $('#newSummaryMaxLength').value = sc.summary_max_length || 800;
 
     // 填充自定义字段定义
     $('#customFieldDefsList').innerHTML = '';
@@ -190,6 +193,7 @@ async function updateSessionSettings() {
     current_arc: $('#newArc').value.trim(),
     custom_instructions: $('#newInstructions').value.trim(),
     custom_field_defs: getCustomFieldDefs(),
+    summary_max_length: parseInt($('#newSummaryMaxLength').value) || 800,
   };
 
   try {
@@ -301,6 +305,7 @@ function renderSessionConfig(sc) {
   const fields = [
     ['剧情弧', sc.current_arc],
     ['写作风格', sc.custom_instructions],
+    ['概述字数', sc.summary_max_length ? `${sc.summary_max_length} 字` : null],
   ];
   let html = '';
   for (const [label, val] of fields) {

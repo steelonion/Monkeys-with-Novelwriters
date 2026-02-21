@@ -211,6 +211,10 @@
           <label>写作风格要求
             <textarea id="newInstructions" rows="2" placeholder="如：文风偏古典，多用四字短语，节奏紧凑"></textarea>
           </label>
+          <label>前文概述字数上限
+            <input type="number" id="newSummaryMaxLength" min="800" max="5000" step="100" value="800" placeholder="800" />
+            <span class="form-hint" style="margin-top:2px;display:block">控制主线概述的目标字数（800-5000），影响传递给大模型的前文信息量</span>
+          </label>
 
           <div class="form-section-title">🧩 角色自定义字段</div>
           <p class="form-hint">定义本会话中角色需要追踪的特殊属性（如修为境界、技能、等级等），AI 会自动为每个角色维护这些字段。</p>
