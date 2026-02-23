@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/static/css/components.css" />
   <link rel="stylesheet" href="/static/css/mainline.css" />
   <link rel="stylesheet" href="/static/css/state-panel.css" />
+  <link rel="stylesheet" href="/static/css/skilltree.css" />
   <link rel="stylesheet" href="/static/css/chat.css" />
 </head>
 <body>
@@ -512,6 +513,90 @@
     </div>
   </div>
 
+  <!-- ═══════════════════ 技能树 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="skillTreeModal">
+    <div class="modal modal-skilltree">
+      <div class="modal-header">
+        <h3 id="skillTreeTitle">🌳 技能树</h3>
+        <button class="btn btn-icon" onclick="closeModal('skillTreeModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- 左侧：画布 -->
+        <div class="st-left">
+          <div id="skillTreeHeader" class="st-header"></div>
+          <div id="skillTreeCanvas" class="st-canvas"></div>
+          <div class="st-canvas-toolbar">
+            <button class="btn btn-sm btn-ghost" onclick="openAddSkillModal()">+ 添加技能</button>
+            <button class="btn btn-sm btn-ghost" onclick="openEditSkillResources()">⚙ 资源设置</button>
+            <div style="flex:1"></div>
+            <button class="btn btn-sm btn-primary" onclick="saveSkillTree()">💾 保存技能树</button>
+          </div>
+        </div>
+        <!-- 右侧：详情 -->
+        <div id="skillTreeDetail" class="st-right">
+          <div class="st-detail-empty">选择一个技能节点查看详情</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 技能编辑 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="skillEditModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="skillEditModalTitle">添加技能</h3>
+        <button class="btn btn-icon" onclick="closeModal('skillEditModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="skillEditId" />
+        <label>技能名称 <input type="text" id="skillEditName" placeholder="如：剑术" /></label>
+        <label>图标（Emoji） <input type="text" id="skillEditIcon" placeholder="如：⚔️" /></label>
+        <label>描述 <textarea id="skillEditDesc" rows="2" placeholder="技能描述"></textarea></label>
+        <label>分类 <input type="text" id="skillEditCategory" placeholder="如：战斗、魔法、生活" /></label>
+        <label>当前等级 <input type="number" id="skillEditCurLevel" min="0" value="0" /></label>
+        <div class="form-section-title">画布位置</div>
+        <div class="st-pos-row">
+          <label>X <input type="number" id="skillEditPosX" value="0" /></label>
+          <label>Y <input type="number" id="skillEditPosY" value="0" /></label>
+        </div>
+        <div class="form-section-title">前置技能</div>
+        <div id="skillEditPrereqs" class="dynamic-rows"></div>
+        <button class="btn btn-sm btn-ghost" type="button" onclick="addSkillPrereqRowUI()">+ 添加前置</button>
+        <div class="form-section-title">等级列表</div>
+        <p class="form-hint">定义每个等级的效果和解锁消耗</p>
+        <div id="skillEditLevels"></div>
+        <button class="btn btn-sm btn-ghost" type="button" onclick="addSkillLevelRowUI()">+ 添加等级</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('skillEditModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveSkillNode()">保存技能</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ 技能资源编辑 Modal ═══════════════════ -->
+  <div class="modal-overlay" id="skillResModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>⚙ 技能资源设置</h3>
+        <button class="btn btn-icon" onclick="closeModal('skillResModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="st-res-edit-grid">
+          <label>⭐ 技能点 <input type="number" id="skillResPoints" min="0" value="0" /></label>
+          <label>🔧 熟练度 <input type="number" id="skillResProf" min="0" value="0" /></label>
+        </div>
+        <label>分类列表（顿号/逗号分隔）
+          <input type="text" id="skillResCategories" placeholder="如：战斗、魔法、生活" />
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('skillResModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveSkillResources()">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- AI 任务状态栏 -->
   <div id="statusBar" class="status-bar" style="display:none">
     <div class="status-bar-spinner"></div>
@@ -523,6 +608,7 @@
   <script src="/static/js/workspace.js"></script>
   <script src="/static/js/mainline.js"></script>
   <script src="/static/js/characters.js"></script>
+  <script src="/static/js/skilltree.js"></script>
   <script src="/static/js/locations.js"></script>
   <script src="/static/js/story.js"></script>
   <script src="/static/js/chat.js"></script>

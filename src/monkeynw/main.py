@@ -571,7 +571,7 @@ async def serve_frontend():
     """提供前端页面"""
     index_path = FRONTEND_DIR / "index.html"
     if index_path.exists():
-        return FileResponse(index_path)
+        return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
     return JSONResponse({"error": "前端文件不存在"}, status_code=404)
 
 

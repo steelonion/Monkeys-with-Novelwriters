@@ -96,7 +96,9 @@ function renderStatePanelCharacters(container, current, baseline, target) {
     const badge = isNew ? '<span class="ws-badge-new">新</span>' : (isChanged ? '<span class="ws-badge-updated">已更新</span>' : '');
 
     html += `<div class="${cardClass}" data-char-name="${escHtml(charData.name)}" data-target="${target}">`;
-    html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}<span class="ws-edit-btn" title="编辑" onclick="event.stopPropagation(); openEditCharState(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">✏</span></div>`;
+    html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}`;
+    html += `<button class="ws-skill-tree-btn" title="技能树" onclick="event.stopPropagation(); openSkillTreePanel(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">🌳</button>`;
+    html += `<span class="ws-edit-btn" title="编辑" onclick="event.stopPropagation(); openEditCharState(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">✏</span></div>`;
 
     const fields = [
       ['状态', 'status'], ['位置', 'location'], ['描述', 'description'], ['外貌', 'appearance'], ['着装', 'outfit']
@@ -123,6 +125,15 @@ function renderStatePanelCharacters(container, current, baseline, target) {
       }
       html += '</div>';
     }
+
+    // 技能树摘要
+    if (charData.skill_tree && charData.skill_tree.skills && Object.keys(charData.skill_tree.skills).length) {
+      const st = charData.skill_tree;
+      const skillCount = Object.keys(st.skills).length;
+      const unlockedCount = Object.values(st.skills).filter(s => (s.current_level || 0) > 0).length;
+      html += `<div class="ws-custom-fields"><div class="ws-custom-field"><span class="ws-custom-key">🌳 技能:</span> <span class="ws-custom-val">${unlockedCount}/${skillCount} 已解锁 · ⭐${st.skill_points || 0} · 🔧${st.proficiency || 0}</span></div></div>`;
+    }
+
     html += '</div>';
   }
   container.innerHTML = html;
@@ -136,6 +147,7 @@ function _isCharChanged(cur, ml) {
   if (JSON.stringify(cur.relationships || {}) !== JSON.stringify(ml.relationships || {})) return true;
   if (JSON.stringify(cur.inventory || []) !== JSON.stringify(ml.inventory || [])) return true;
   if (JSON.stringify(cur.custom_fields || {}) !== JSON.stringify(ml.custom_fields || {})) return true;
+  if (JSON.stringify(cur.skill_tree || {}) !== JSON.stringify(ml.skill_tree || {})) return true;
   return false;
 }
 

@@ -115,6 +115,41 @@ SYSTEM_PROMPT_TEMPLATE = """\
       "notes": "备注",
       "custom_fields": {{
         "自定义字段名": "任意值（字符串/数组/对象均可）"
+      }},
+      "skill_tree": {{
+        "skill_points": 10,
+        "proficiency": 50,
+        "categories": ["战斗", "生存", "魔法"],
+        "skills": {{
+          "skill_id_1": {{
+            "name": "技能名",
+            "description": "技能描述",
+            "category": "战斗",
+            "icon": "⚔️",
+            "current_level": 1,
+            "max_level": 3,
+            "levels": [
+              {{"level": 1, "effect": "效果描述", "cost": {{"skill_points": 1, "proficiency": 0}}}},
+              {{"level": 2, "effect": "效果描述", "cost": {{"skill_points": 2, "proficiency": 10}}}}
+            ],
+            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}],
+            "position": {{"x": 0, "y": 0}}
+          }},
+          "skill_id_2": {{
+            "name": "另一个技能",
+            "description": "描述",
+            "category": "生存",
+            "icon": "🌿",
+            "current_level": 2,
+            "max_level": 5,
+            "levels": [
+              {{"level": 1, "effect": "Lv1效果", "cost": {{"skill_points": 2}}}},
+              {{"level": 2, "effect": "Lv2效果", "cost": {{"skill_points": 4}}}}
+            ],
+            "prerequisites": [],
+            "position": {{"x": 1, "y": 0}}
+          }}
+        }}
       }}
     }}
   }},
@@ -140,8 +175,21 @@ SYSTEM_PROMPT_TEMPLATE = """\
 - 只需要列出**状态发生变化**的角色，未变化的角色不用列出。
 - world_update 只列出有变化的字段，没变化可以留空对象。
 - locations_update 只列出新出现或发生变化的地点。
-- custom_fields 用于存储任何小说特有的角色属性（如技能、等级、属性值、能力、阵营、修为境界、血统、法术、好感度、阵法、体质等），请根据角色设定中已有的 custom_fields 保持格式一致并更新变化的内容。已有的 custom_fields 键不要遗漏。
-- **重要**：当角色的某些状态信息（如修为等级、技能熟练度、魔力值、战斗力、阵营声望等）无法被 name/description/appearance/outfit/personality/status/location/relationships/inventory/notes 这些基础字段充分表达时，**必须**将其作为新的 custom_fields 键写入。主动发现并创建新的自定义字段，而不是将所有信息挤入 status 或 notes。
+- custom_fields 用于存储任何小说特有的角色属性（如等级、属性值、能力、阵营、修为境界、血统、法术、好感度、阵法、体质等），请根据角色设定中已有的 custom_fields 保持格式一致并更新变化的内容。已有的 custom_fields 键不要遗漏。
+- **重要**：当角色的某些状态信息（如修为等级、魔力值、战斗力、阵营声望等）无法被 name/description/appearance/outfit/personality/status/location/relationships/inventory/notes 这些基础字段充分表达时，**必须**将其作为新的 custom_fields 键写入。主动发现并创建新的自定义字段，而不是将所有信息挤入 status 或 notes。
+- **skill_tree（技能树）格式严格要求**（必须精确遵守，禁止自行发明结构）：
+  · skill_tree 是**扁平结构**，顶层只有 4 个键：`skill_points`(number)、`proficiency`(number)、`categories`(string[])、`skills`(object)。
+  · **禁止**使用 `tree_branches`、`branches`、`groups` 或任何嵌套分组结构。所有技能**必须**直接放在顶层的 `skills` 对象下，用 `category` 字段标注分类。
+  · `categories` 数组列出所有分类名（如 ["生存", "魔法", "辅助"]），技能通过 `category` 字段引用这些分类。
+  · `skills` 是一个扁平字典，键为技能ID(如 "survival_hunting")，值为技能对象。**不要**在 skills 内部再嵌套分组。
+  · 每个技能对象必须包含：name, description, category, icon, current_level, max_level, levels(数组), prerequisites(数组), position({{x,y}})。
+  · levels 数组中每个元素：{{"level": N, "effect": "效果", "cost": {{"skill_points": N}}}}。
+  · 当剧情中角色**习得新技能、技能升级、获得技能点/熟练度**时，必须更新 skill_tree。
+  · 更新 skill_tree 时只需列出变化的部分（如 skill_points 变化、某技能 current_level 提升、新增技能等），未变化的技能不需要重复列出。但新增技能时必须提供完整结构。
+  · position 字段用于前端画布显示位置，新增技能时请自动分配合理位置（x/y 整数，按 1-2 间距排列）。
+  · 如果角色已有 skill_tree 但剧情中没有技能变化，则不需要在输出中包含 skill_tree。
+  · **错误示例**（禁止）：`"tree_branches": {{"survival": {{"skills": ...}}}}` ← 不要这样嵌套！
+  · **正确示例**：`"skills": {{"survival_hunting": {{"category": "生存", ...}}, "magic_fire": {{"category": "魔法", ...}}}}` ← 所有技能扁平展开在 skills 下。
 - JSON 必须合法，可以被直接解析。
 """
 
@@ -234,7 +282,28 @@ CHAT_SYSTEM_PROMPT_TEMPLATE = """\
   "characters": {{
     "角色名": {{
       "要更新的字段": "新的值",
-      "custom_fields": {{"字段名": "值"}}
+      "custom_fields": {{"字段名": "值"}},
+      "skill_tree": {{
+        "skill_points": 10,
+        "proficiency": 50,
+        "categories": ["战斗", "辅助"],
+        "skills": {{
+          "技能ID": {{
+            "name": "技能名",
+            "description": "技能描述",
+            "category": "战斗",
+            "icon": "⚔️",
+            "current_level": 2,
+            "max_level": 3,
+            "levels": [
+              {{"level": 1, "effect": "效果", "cost": {{"skill_points": 1}}}},
+              {{"level": 2, "effect": "效果", "cost": {{"skill_points": 2}}}}
+            ],
+            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}],
+            "position": {{"x": 0, "y": 0}}
+          }}
+        }}
+      }}
     }}
   }},
   "world_update": {{
@@ -253,6 +322,8 @@ CHAT_SYSTEM_PROMPT_TEMPLATE = """\
 - 只在用户**明确要求**更新状态时才附上状态更新 JSON。
 - 普通剧情讨论不需要附状态更新。
 - JSON 中只列出需要变更的字段，不要列出未变化的字段。
+- **skill_tree（技能树）**：当讨论涉及角色技能变化时（如学会新技能、技能升级、获得技能点/熟练度），需要在 skill_tree 中更新。只列出变化的部分，新增技能需提供完整结构。
+- **skill_tree 格式严格要求**：skill_tree 是扁平结构，顶层只有 `skill_points`、`proficiency`、`categories`(string[])、`skills`(扁平字典)。所有技能直接放在 `skills` 下，通过 `category` 字段标注分类。**禁止**使用 `tree_branches`、`branches` 等嵌套分组结构。
 - 如果用户没有要求更新状态，就正常回复即可，不要加分隔符。
 """
 
@@ -343,6 +414,43 @@ def _build_characters_block(characters: dict[str, CharacterState]) -> str:
                     lines.append(f"- {cf_key}：{json.dumps(cf_val, ensure_ascii=False)}")
                 else:
                     lines.append(f"- {cf_key}：{cf_val}")
+        if char.skill_tree and isinstance(char.skill_tree, dict) and char.skill_tree.get("skills"):
+            st = char.skill_tree
+            skills_data = st.get("skills", {})
+            sp = st.get("skill_points", 0)
+            prof = st.get("proficiency", 0)
+            cats = st.get("categories", [])
+            cats_str = f", 分类: {'/'.join(cats)}" if cats else ""
+            lines.append(f"- 技能树（可用技能点: {sp}, 可用熟练度: {prof}{cats_str}, 共{len(skills_data)}个技能）：")
+            lines.append(f"  [技能树数据格式: skill_tree.skills 为扁平字典，键=技能ID，值含 category 字段标注分类]")
+            for sid, sk in skills_data.items():
+                cur_lv = sk.get("current_level", 0)
+                max_lv = sk.get("max_level", len(sk.get("levels", [])))
+                cat_str = f"[{sk.get('category', '')}]" if sk.get("category") else ""
+                prereq_strs = []
+                for pr in sk.get("prerequisites", []):
+                    if isinstance(pr, dict):
+                        pr_name = skills_data.get(pr.get("skill_id", ""), {}).get("name", pr.get("skill_id", ""))
+                        pr_lv = pr.get("level", 1)
+                        prereq_strs.append(f"{pr_name}Lv.{pr_lv}")
+                prereq_str = f"  前置: {', '.join(prereq_strs)}" if prereq_strs else ""
+                cur_effect = ""
+                if cur_lv > 0 and sk.get("levels"):
+                    for lv_def in sk["levels"]:
+                        if lv_def.get("level", 0) == cur_lv:
+                            cur_effect = f"  当前效果: {lv_def.get('effect', '')}"
+                            break
+                next_info = ""
+                if cur_lv < max_lv and sk.get("levels"):
+                    for lv_def in sk["levels"]:
+                        if lv_def.get("level", 0) == cur_lv + 1:
+                            cost = lv_def.get("cost", {})
+                            cost_parts = []
+                            if cost.get("skill_points"): cost_parts.append(f"技能点{cost['skill_points']}")
+                            if cost.get("proficiency"): cost_parts.append(f"熟练度{cost['proficiency']}")
+                            next_info = f"  下级({'+'.join(cost_parts) if cost_parts else '免费'}): {lv_def.get('effect', '')}"
+                            break
+                lines.append(f"  · {sk.get('name', sid)} {cat_str} Lv.{cur_lv}/{max_lv}{prereq_str}{cur_effect}{next_info}")
         lines.append("")
     return "\n".join(lines)
 
@@ -465,6 +573,12 @@ def parse_chat_response(raw_text: str) -> tuple[str, dict | None]:
     except json.JSONDecodeError:
         return reply_text, None
 
+    # 归一化 skill_tree 结构（防御 AI 输出 tree_branches 等非标格式）
+    if isinstance(state_updates, dict) and "characters" in state_updates:
+        for char_name, char_data in state_updates["characters"].items():
+            if isinstance(char_data, dict) and "skill_tree" in char_data:
+                char_data["skill_tree"] = _normalize_skill_tree(char_data["skill_tree"])
+
     return reply_text, state_updates
 
 
@@ -539,6 +653,80 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
 
 # ────────────────────────────── 响应解析 ──────────────────────────────
 
+
+def _normalize_skill_tree(st_data: dict) -> dict:
+    """将 AI 可能输出的非标准 skill_tree 格式（如 tree_branches 嵌套结构）
+    归一化为前端要求的扁平格式：{skill_points, proficiency, categories, skills}。"""
+    if not isinstance(st_data, dict):
+        return st_data
+
+    # 如果已经是正确格式（有顶层 skills 且不是嵌套分支），直接返回
+    has_flat_skills = "skills" in st_data and isinstance(st_data["skills"], dict)
+    has_branches = any(k in st_data for k in ("tree_branches", "branches", "groups", "skill_branches"))
+
+    if has_flat_skills and not has_branches:
+        return st_data
+
+    if not has_branches:
+        return st_data
+
+    # 找到分支字段
+    branch_key = None
+    for k in ("tree_branches", "branches", "groups", "skill_branches"):
+        if k in st_data and isinstance(st_data[k], dict):
+            branch_key = k
+            break
+
+    if not branch_key:
+        return st_data
+
+    branches = st_data[branch_key]
+    flat_skills = {}
+    auto_categories = set()
+
+    for branch_id, branch_data in branches.items():
+        if not isinstance(branch_data, dict):
+            continue
+
+        branch_name = branch_data.get("name", branch_id)
+
+        # 收集分支下的技能
+        branch_skills = branch_data.get("skills", {})
+        if not isinstance(branch_skills, dict):
+            continue
+
+        for skill_id, skill_data in branch_skills.items():
+            if not isinstance(skill_data, dict):
+                continue
+            # 如果技能没有 category 字段，用分支名作为 category
+            if not skill_data.get("category"):
+                skill_data["category"] = branch_name
+            auto_categories.add(skill_data["category"])
+            flat_skills[skill_id] = skill_data
+
+    # 构建归一化结果
+    result = {}
+    if "skill_points" in st_data:
+        result["skill_points"] = st_data["skill_points"]
+    if "proficiency" in st_data:
+        result["proficiency"] = st_data["proficiency"]
+
+    # 合并已有 categories
+    existing_cats = set(st_data.get("categories", []))
+    existing_cats.update(auto_categories)
+    result["categories"] = list(existing_cats)
+
+    # 合并已有的顶层 skills（如果有）和从 branches 提取的 skills
+    if has_flat_skills:
+        merged = dict(st_data["skills"])
+        merged.update(flat_skills)
+        result["skills"] = merged
+    else:
+        result["skills"] = flat_skills
+
+    return result
+
+
 SEPARATOR = "===CHARACTER_STATE_UPDATE==="
 
 
@@ -606,6 +794,37 @@ def parse_ai_response(
                             # custom_fields 做深度合并
                             if "custom_fields" in char_data and isinstance(char_data["custom_fields"], dict):
                                 existing.custom_fields.update(char_data["custom_fields"])
+                        elif field_name == "skill_tree":
+                            # skill_tree 做深度合并
+                            if "skill_tree" in char_data and isinstance(char_data["skill_tree"], dict):
+                                st_update = _normalize_skill_tree(char_data["skill_tree"])
+                                if not existing.skill_tree:
+                                    existing.skill_tree = {}
+                                # 合并顶层字段
+                                for st_key in ("skill_points", "proficiency"):
+                                    if st_key in st_update:
+                                        existing.skill_tree[st_key] = st_update[st_key]
+                                if "categories" in st_update and isinstance(st_update["categories"], list):
+                                    existing_cats = set(existing.skill_tree.get("categories", []))
+                                    existing_cats.update(st_update["categories"])
+                                    existing.skill_tree["categories"] = list(existing_cats)
+                                # 深度合并 skills
+                                if "skills" in st_update and isinstance(st_update["skills"], dict):
+                                    if "skills" not in existing.skill_tree:
+                                        existing.skill_tree["skills"] = {}
+                                    for sk_id, sk_data in st_update["skills"].items():
+                                        if isinstance(sk_data, dict):
+                                            if sk_id in existing.skill_tree["skills"]:
+                                                existing.skill_tree["skills"][sk_id].update(sk_data)
+                                            else:
+                                                existing.skill_tree["skills"][sk_id] = sk_data
+                                # 自动补全 categories（从 skills 的 category 字段收集）
+                                if "skills" in existing.skill_tree:
+                                    auto_cats = set(existing.skill_tree.get("categories", []))
+                                    for sk_data in existing.skill_tree["skills"].values():
+                                        if isinstance(sk_data, dict) and sk_data.get("category"):
+                                            auto_cats.add(sk_data["category"])
+                                    existing.skill_tree["categories"] = list(auto_cats)
                         elif field_name in char_data and char_data[field_name]:
                             setattr(existing, field_name, char_data[field_name])
                 else:

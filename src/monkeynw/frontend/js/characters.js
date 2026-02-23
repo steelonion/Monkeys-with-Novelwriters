@@ -17,6 +17,14 @@ function showCharDetail(c) {
     }).join('');
   }
 
+  let skillTreeHtml = '';
+  if (c.skill_tree && c.skill_tree.skills && Object.keys(c.skill_tree.skills).length) {
+    const st = c.skill_tree;
+    const skillCount = Object.keys(st.skills).length;
+    const unlockedCount = Object.values(st.skills).filter(s => (s.current_level || 0) > 0).length;
+    skillTreeHtml = `<div class="char-detail-item full"><div class="char-detail-label">技能树</div><div class="char-detail-value">⭐${st.skill_points || 0} 技能点 · 🔧${st.proficiency || 0} 熟练度 · ${unlockedCount}/${skillCount} 已解锁</div></div>`;
+  }
+
   $('#charDetailBody').innerHTML = `
     <div class="char-detail-grid">
       <div class="char-detail-item"><div class="char-detail-label">描述</div><div class="char-detail-value">${escHtml(c.description || '暂无')}</div></div>
@@ -29,6 +37,7 @@ function showCharDetail(c) {
       <div class="char-detail-item full"><div class="char-detail-label">随身物品</div><div class="char-detail-value">${escHtml(inv)}</div></div>
       <div class="char-detail-item full"><div class="char-detail-label">备注</div><div class="char-detail-value">${escHtml(c.notes || '暂无')}</div></div>
       ${customFieldsHtml}
+      ${skillTreeHtml}
     </div>`;
   openModal('charDetailModal');
 }
@@ -57,6 +66,7 @@ async function addCharacter() {
       relationships: {},
       inventory: [],
       custom_fields: {},
+      skill_tree: {},
     };
 
     const updated = await apiJson('/api/session/setting', {
@@ -195,6 +205,20 @@ async function saveCharState() {
     inventory: $('#editCharStateInventory').value.trim().split(/[,，、]/).map(s => s.trim()).filter(Boolean),
     custom_fields: _getEditCharCustomFields(),
   };
+
+  // 保留已有的 skill_tree（技能树在专门面板中编辑）
+  try {
+    let existingChars;
+    if (target === 'mainline') {
+      existingChars = ((_currentSession.mainline_state && _currentSession.mainline_state.characters) || {});
+    } else {
+      existingChars = ((_currentSession.workspace && _currentSession.workspace.characters) || {});
+    }
+    const existingChar = existingChars[origName || newName];
+    if (existingChar && existingChar.skill_tree) {
+      charObj.skill_tree = existingChar.skill_tree;
+    }
+  } catch (_e) { /* ignore */ }
 
   try {
     let chars;

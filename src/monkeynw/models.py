@@ -24,6 +24,7 @@ class CharacterState(BaseModel):
     inventory: list[str] = Field(default_factory=list, description="随身物品")
     notes: str = Field(default="", description="其他备注信息")
     custom_fields: dict[str, Any] = Field(default_factory=dict, description="自定义扩展字段(如技能、属性、等级等)")
+    skill_tree: dict[str, Any] = Field(default_factory=dict, description="技能树数据(JSON对象，包含skill_points/proficiency/categories/skills)")
 
 
 # ────────────────────────────── 地点设定 ──────────────────────────────

@@ -236,6 +236,39 @@ async function applyChatStateUpdate(cardId) {
         if (field === 'custom_fields' && typeof value === 'object') {
           if (!mergedChars[charName].custom_fields) mergedChars[charName].custom_fields = {};
           Object.assign(mergedChars[charName].custom_fields, value);
+        } else if (field === 'skill_tree' && typeof value === 'object') {
+          // skill_tree 深度合并
+          if (!mergedChars[charName].skill_tree) mergedChars[charName].skill_tree = {};
+          const existing = mergedChars[charName].skill_tree;
+          const incoming = value;
+          // 合并 skill_points / proficiency
+          if (incoming.skill_points !== undefined) existing.skill_points = incoming.skill_points;
+          if (incoming.proficiency !== undefined) existing.proficiency = incoming.proficiency;
+          // 合并 categories
+          if (incoming.categories && Array.isArray(incoming.categories)) {
+            const catSet = new Set(existing.categories || []);
+            incoming.categories.forEach(c => catSet.add(c));
+            existing.categories = [...catSet];
+          }
+          // 深度合并 skills
+          if (incoming.skills && typeof incoming.skills === 'object') {
+            if (!existing.skills) existing.skills = {};
+            for (const [skId, skData] of Object.entries(incoming.skills)) {
+              if (existing.skills[skId]) {
+                Object.assign(existing.skills[skId], skData);
+              } else {
+                existing.skills[skId] = skData;
+              }
+            }
+          }
+          // 自动补全 categories
+          if (existing.skills) {
+            const allCats = new Set(existing.categories || []);
+            Object.values(existing.skills).forEach(sk => {
+              if (sk && sk.category) allCats.add(sk.category);
+            });
+            existing.categories = [...allCats];
+          }
         } else {
           mergedChars[charName][field] = value;
         }
