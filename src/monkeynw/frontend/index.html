@@ -149,10 +149,13 @@
         </div>
         <div class="chat-input-area">
           <textarea id="chatInput" rows="2" placeholder="输入你的问题或想法..." onkeydown="handleChatKeydown(event)"></textarea>
-          <button class="btn btn-primary btn-sm chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">
-            <span class="chat-send-text">发送</span>
-            <span class="chat-send-loading" style="display:none">...</span>
-          </button>
+          <div class="chat-input-actions">
+            <button class="btn btn-ghost btn-sm chat-clear-btn" onclick="clearChatHistory()" title="清理对话，开始新一轮咨询">🗑 清理</button>
+            <button class="btn btn-primary btn-sm chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">
+              <span class="chat-send-text">发送</span>
+              <span class="chat-send-loading" style="display:none">...</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -187,6 +190,7 @@
     <div id="workspaceStatePanel" class="state-tab-content">
       <div class="workspace-sync-bar">
         <button class="btn btn-sm btn-accent" onclick="syncMainlineToWorkspace()" title="将主线的角色、世界设定、地点同步到工作区状态">⬇ 从主线同步</button>
+        <button class="btn btn-sm btn-accent" onclick="applyWorkspaceToMainline()" title="将当前工作区状态应用到主线">⬆ 应用到主线</button>
       </div>
       <div class="workspace-section">
         <div class="workspace-section-title">👥 角色状态 <button class="btn btn-xs btn-ghost ws-section-action" onclick="openEditCharState(null, 'workspace')" title="添加角色">+</button></div>

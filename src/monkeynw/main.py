@@ -211,6 +211,15 @@ async def sync_mainline_to_workspace(session_id: str):
     return session.model_dump()
 
 
+@app.post("/api/session/{session_id}/sync-workspace-to-mainline")
+async def sync_workspace_to_mainline(session_id: str):
+    """将工作区状态应用到主线状态"""
+    session = session_manager.sync_workspace_to_mainline(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return session.model_dump()
+
+
 # ────────────────────────────── 生成 ──────────────────────────────────
 
 @app.post("/api/generate")

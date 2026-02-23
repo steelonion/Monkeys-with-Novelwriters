@@ -315,6 +315,27 @@ class SessionManager:
         self._save_to_disk(session)
         return session
 
+    def sync_workspace_to_mainline(self, session_id: str) -> Session | None:
+        """将工作区状态应用到主线状态（角色、世界设定、会话配置、地点）"""
+        session = self.get_session(session_id)
+        if not session:
+            return None
+        session.mainline_characters = {
+            name: char.model_copy(deep=True)
+            for name, char in session.characters.items()
+        }
+        if session.world_setting:
+            session.mainline_world_setting = session.world_setting.model_copy(deep=True)
+        if session.session_config:
+            session.mainline_session_config = session.session_config.model_copy(deep=True)
+        session.mainline_locations = {
+            name: loc.model_copy(deep=True)
+            for name, loc in session.locations.items()
+        }
+        session.updated_at = datetime.now().isoformat()
+        self._save_to_disk(session)
+        return session
+
     def _update_mainline_snapshot(self, session: Session) -> None:
         """根据主线条目匹配的历史步骤快照来更新主线状态。
 

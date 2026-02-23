@@ -242,8 +242,25 @@
   color: var(--text-muted);
 }
 
+.chat-input-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: stretch;
+  justify-content: flex-end;
+}
+
 .chat-send-btn {
-  align-self: flex-end;
   padding: 10px 18px;
   white-space: nowrap;
+}
+
+.chat-clear-btn {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+.chat-clear-btn:hover {
+  color: var(--danger);
 }

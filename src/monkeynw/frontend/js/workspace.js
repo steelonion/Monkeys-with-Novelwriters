@@ -10,6 +10,21 @@ function switchStateTab(tab) {
   document.getElementById(tab === 'mainline' ? 'mainlineStatePanel' : 'workspaceStatePanel').classList.add('active');
 }
 
+/** 将工作区状态应用到主线 */
+async function applyWorkspaceToMainline() {
+  if (!_currentSession) return;
+  if (!confirm('确定将工作区状态应用到主线吗？\n这将用当前工作区的角色、世界设定、地点覆盖主线状态。')) return;
+  try {
+    const res = await fetch(`${API}/api/session/${_currentSession.session_id}/sync-workspace-to-mainline`, { method: 'POST' });
+    if (!res.ok) throw new Error(await res.text());
+    _currentSession = await res.json();
+    renderWorkspace(_currentSession);
+    showToast('工作区状态已应用到主线', 'success');
+  } catch (e) {
+    showToast('应用失败: ' + e.message, 'error');
+  }
+}
+
 /** 将主线状态同步到工作区状态 */
 async function syncMainlineToWorkspace() {
   if (!_currentSession) return;

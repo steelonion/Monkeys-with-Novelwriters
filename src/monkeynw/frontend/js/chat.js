@@ -72,7 +72,7 @@ function _appendChatMessage(role, content, stateUpdates) {
       <div class="chat-state-update-card" id="${updateId}">
         <div class="card-header">
           <span class="card-title">📋 建议的状态更新</span>
-          <button class="btn-apply-state" onclick="applyChatStateUpdate('${updateId}')">✓ 应用到主线</button>
+          <button class="btn-apply-state" onclick="applyChatStateUpdate('${updateId}')">✓ 应用到工作区</button>
         </div>
         <div class="card-body"><pre>${escHtml(summaryLines)}</pre></div>
       </div>`;
@@ -216,12 +216,12 @@ async function applyChatStateUpdate(cardId) {
   const updates = card._stateUpdates;
   const btn = card.querySelector('.btn-apply-state');
 
-  // 构建更新请求：合并现有主线状态与 AI 建议的增量更新
+  // 构建更新请求：合并现有工作区状态与 AI 建议的增量更新
   const session = _currentSession;
-  const baseChars = session.mainline_characters || session.characters || {};
-  const baseWorld = session.mainline_world_setting || session.world_setting;
-  const baseConfig = session.mainline_session_config || session.session_config;
-  const baseLocs = session.mainline_locations || session.locations || {};
+  const baseChars = session.characters || {};
+  const baseWorld = session.world_setting;
+  const baseConfig = session.session_config;
+  const baseLocs = session.locations || {};
 
   let reqBody = {};
 
@@ -282,20 +282,20 @@ async function applyChatStateUpdate(cardId) {
   btn.textContent = '应用中...';
 
   try {
-    const data = await apiJson(`/api/session/${currentSessionId}/mainline-state`, {
+    const data = await apiJson('/api/session/setting', {
       method: 'PUT',
-      body: JSON.stringify(reqBody),
+      body: JSON.stringify({ session_id: currentSessionId, ...reqBody }),
     });
 
     _currentSession = data;
     renderWorkspace(_currentSession);
 
-    btn.textContent = '✓ 已应用';
+    btn.textContent = '✓ 已应用到工作区';
     btn.classList.add('applied');
-    showToast('状态更新已应用到主线');
+    showToast('状态更新已应用到工作区');
   } catch (e) {
     btn.disabled = false;
-    btn.textContent = '✓ 应用到主线';
+    btn.textContent = '✓ 应用到工作区';
     showToast('应用失败: ' + e.message);
   }
 }
