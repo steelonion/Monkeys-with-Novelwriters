@@ -218,10 +218,10 @@ async function applyChatStateUpdate(cardId) {
 
   // 构建更新请求：合并现有工作区状态与 AI 建议的增量更新
   const session = _currentSession;
-  const baseChars = session.characters || {};
-  const baseWorld = session.world_setting;
-  const baseConfig = session.session_config;
-  const baseLocs = session.locations || {};
+  const baseChars = (session.workspace && session.workspace.characters) || {};
+  const baseWorld = session.workspace && session.workspace.world_setting;
+  const baseConfig = (session.info && session.info.session_config) || {};
+  const baseLocs = (session.workspace && session.workspace.locations) || {};
 
   let reqBody = {};
 

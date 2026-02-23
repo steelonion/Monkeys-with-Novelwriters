@@ -39,9 +39,9 @@ if FRONTEND_DIR.exists():
 
 def _resolve_summary_max_length(session) -> int:
     """根据会话配置解析实际的概述字数上限：自动模式按主线总字数计算，手动模式用用户设定值"""
-    sc = session.session_config
+    sc = session.info.session_config
     if sc.summary_auto_length:
-        total_chars = sum(len(e.text) for e in session.mainline)
+        total_chars = sum(len(e.text) for e in session.info.mainline)
         return compute_auto_summary_length(total_chars)
     return sc.summary_max_length
 
@@ -194,7 +194,6 @@ async def update_mainline_state(session_id: str, req: UpdateMainlineStateRequest
         session_id=session_id,
         characters=req.characters,
         world_setting=req.world_setting,
-        session_config=req.session_config,
         locations=req.locations,
     )
     if not session:
@@ -234,7 +233,7 @@ async def generate(req: GenerateRequest):
 
     mode = req.mode or "continue"
 
-    if mode == "adjust" and not session.history:
+    if mode == "adjust" and not session.workspace.history:
         raise HTTPException(status_code=400, detail="没有可调整的历史内容")
 
     try:
@@ -304,9 +303,9 @@ async def get_mainline(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     return {
-        "mainline": [e.model_dump() for e in session.mainline],
-        "mainline_summary": session.mainline_summary,
-        "mainline_prefix": session.mainline_prefix,
+        "mainline": [e.model_dump() for e in session.info.mainline],
+        "mainline_summary": session.info.mainline_summary,
+        "mainline_prefix": session.info.mainline_prefix,
         "needs_summary_update": session_manager.mainline_needs_summary_update(session),
     }
 
@@ -333,11 +332,11 @@ async def add_to_mainline(session_id: str, req: AddMainlineRequest):
     needs_update = session_manager.mainline_needs_summary_update(session)
 
     # 自动重新生成概述
-    summary = session.mainline_summary
+    summary = session.info.mainline_summary
     if needs_update and ai_service.is_configured:
         try:
             summary = await ai_service.generate_mainline_summary(
-                session.mainline, session.world_setting,
+                session.info.mainline, session.workspace.world_setting,
                 summary_max_length=_resolve_summary_max_length(session),
             )
             session_manager.update_mainline_summary(session_id, summary)
@@ -346,7 +345,7 @@ async def add_to_mainline(session_id: str, req: AddMainlineRequest):
 
     return {
         "entry": entry.model_dump(),
-        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline": [e.model_dump() for e in session.info.mainline],
         "mainline_summary": summary,
     }
 
@@ -375,23 +374,23 @@ async def remove_from_mainline(session_id: str, entry_id: str):
     session = session_manager.get_session(session_id)
 
     # 自动重新生成概述
-    summary = session.mainline_summary
-    if session.mainline and session_manager.mainline_needs_summary_update(session) and ai_service.is_configured:
+    summary = session.info.mainline_summary
+    if session.info.mainline and session_manager.mainline_needs_summary_update(session) and ai_service.is_configured:
         try:
             summary = await ai_service.generate_mainline_summary(
-                session.mainline, session.world_setting,
+                session.info.mainline, session.workspace.world_setting,
                 summary_max_length=_resolve_summary_max_length(session),
             )
             session_manager.update_mainline_summary(session_id, summary)
         except Exception:
             pass
-    elif not session.mainline:
+    elif not session.info.mainline:
         # 主线清空了，清除概述
         session_manager.update_mainline_summary(session_id, "")
         summary = ""
 
     return {
-        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline": [e.model_dump() for e in session.info.mainline],
         "mainline_summary": summary,
     }
 
@@ -411,11 +410,11 @@ async def update_mainline_entry(session_id: str, entry_id: str, req: UpdateMainl
     session = session_manager.get_session(session_id)
 
     # 如果文本有变化，自动重新生成概述
-    summary = session.mainline_summary
+    summary = session.info.mainline_summary
     if req.text is not None and session_manager.mainline_needs_summary_update(session) and ai_service.is_configured:
         try:
             summary = await ai_service.generate_mainline_summary(
-                session.mainline, session.world_setting,
+                session.info.mainline, session.workspace.world_setting,
                 summary_max_length=_resolve_summary_max_length(session),
             )
             session_manager.update_mainline_summary(session_id, summary)
@@ -424,7 +423,7 @@ async def update_mainline_entry(session_id: str, entry_id: str, req: UpdateMainl
 
     return {
         "entry": entry.model_dump(),
-        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline": [e.model_dump() for e in session.info.mainline],
         "mainline_summary": summary,
     }
 
@@ -438,8 +437,8 @@ async def reorder_mainline(session_id: str, req: ReorderMainlineRequest):
 
     session = session_manager.get_session(session_id)
     return {
-        "mainline": [e.model_dump() for e in session.mainline],
-        "mainline_summary": session.mainline_summary,
+        "mainline": [e.model_dump() for e in session.info.mainline],
+        "mainline_summary": session.info.mainline_summary,
     }
 
 
@@ -453,12 +452,12 @@ async def regenerate_mainline_summary(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
-    if not session.mainline:
+    if not session.info.mainline:
         raise HTTPException(status_code=400, detail="主线无内容")
 
     try:
         summary = await ai_service.generate_mainline_summary(
-            session.mainline, session.world_setting,
+            session.info.mainline, session.workspace.world_setting,
             summary_max_length=_resolve_summary_max_length(session),
         )
         session_manager.update_mainline_summary(session_id, summary)
@@ -467,7 +466,7 @@ async def regenerate_mainline_summary(session_id: str):
 
     return {
         "mainline_summary": summary,
-        "mainline": [e.model_dump() for e in session.mainline],
+        "mainline": [e.model_dump() for e in session.info.mainline],
     }
 
 
@@ -513,8 +512,8 @@ async def start_new_chapter(session_id: str, req: NewChapterRequest):
         raise HTTPException(status_code=404, detail="会话不存在")
 
     # 合并前情概述和主线概述并用 LLM 总结
-    old_prefix = session.mainline_prefix or ""
-    old_summary = session.mainline_summary or ""
+    old_prefix = session.info.mainline_prefix or ""
+    old_summary = session.info.mainline_summary or ""
 
     new_prefix = ""
     if old_prefix.strip() or old_summary.strip():
@@ -525,7 +524,7 @@ async def start_new_chapter(session_id: str, req: NewChapterRequest):
             new_prefix = await ai_service.generate_chapter_prefix(
                 old_prefix=old_prefix,
                 old_summary=old_summary,
-                world_setting=session.mainline_world_setting or session.world_setting,
+                world_setting=session.mainline_state.world_setting or session.workspace.world_setting,
                 max_length=target_len,
             )
         except Exception as e:

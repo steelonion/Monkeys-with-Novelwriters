@@ -9,7 +9,11 @@ import os
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from .models import Session, HistoryStep, WorldSetting, SessionConfig, CharacterState, LocationSetting, MainlineEntry
+from .models import (
+    Session, SessionInfo, MainlineState, WorkspaceState,
+    HistoryStep, WorldSetting, SessionConfig,
+    CharacterState, LocationSetting, MainlineEntry,
+)
 
 # 存储路径（运行时数据，相对于 CWD）
 SESSIONS_DIR = Path.cwd() / "sessions"
@@ -37,12 +41,21 @@ class SessionManager:
         characters: dict[str, CharacterState] | None = None,
         locations: dict[str, LocationSetting] | None = None,
     ) -> Session:
+        ws = world_setting or WorldSetting()
+        sc = session_config or SessionConfig()
+        chars = characters or {}
+        locs = locations or {}
+
         session = Session(
-            name=name,
-            world_setting=world_setting or WorldSetting(),
-            session_config=session_config or SessionConfig(),
-            characters=characters or {},
-            locations=locations or {},
+            info=SessionInfo(
+                name=name,
+                session_config=sc,
+            ),
+            workspace=WorkspaceState(
+                characters=chars,
+                world_setting=ws,
+                locations=locs,
+            ),
         )
         # 初始化主线快照为初始状态，确保主线面板从一开始就有数据
         self._snapshot_mainline_state(session)
@@ -79,17 +92,17 @@ class SessionManager:
             generated_text=generated_text,
             characters_snapshot={k: v.model_copy(deep=True) for k, v in characters.items()},
             world_snapshot=world_setting.model_copy(deep=True),
-            session_config_snapshot=(session_config or session.session_config).model_copy(deep=True),
+            session_config_snapshot=(session_config or session.info.session_config).model_copy(deep=True),
             locations_snapshot={k: v.model_copy(deep=True) for k, v in (locations or {}).items()},
         )
 
-        session.history.append(step)
-        session.characters = characters
-        session.world_setting = world_setting
+        session.workspace.history.append(step)
+        session.workspace.characters = characters
+        session.workspace.world_setting = world_setting
         if session_config is not None:
-            session.session_config = session_config
+            session.info.session_config = session_config
         if locations is not None:
-            session.locations = locations
+            session.workspace.locations = locations
         session.updated_at = datetime.now().isoformat()
 
         self._save_to_disk(session)
@@ -99,28 +112,27 @@ class SessionManager:
 
     def undo(self, session_id: str) -> bool:
         session = self.get_session(session_id)
-        if not session or not session.history:
+        if not session or not session.workspace.history:
             return False
 
         # 移除最后一步
-        session.history.pop()
+        session.workspace.history.pop()
 
-        if session.history:
+        if session.workspace.history:
             # 恢复到上一步的快照
-            last_step = session.history[-1]
-            session.characters = {
+            last_step = session.workspace.history[-1]
+            session.workspace.characters = {
                 k: v.model_copy(deep=True)
                 for k, v in last_step.characters_snapshot.items()
             }
-            session.world_setting = last_step.world_snapshot.model_copy(deep=True)
-            session.session_config = last_step.session_config_snapshot.model_copy(deep=True)
-            session.locations = {
+            session.workspace.world_setting = last_step.world_snapshot.model_copy(deep=True)
+            session.info.session_config = last_step.session_config_snapshot.model_copy(deep=True)
+            session.workspace.locations = {
                 k: v.model_copy(deep=True)
                 for k, v in last_step.locations_snapshot.items()
             }
         else:
-            # 没有历史了，可以选择保留初始设定或者清空
-            # 这里保留当前设定不变（角色和世界观回到初始状态比较复杂）
+            # 没有历史了，保留当前设定不变
             pass
 
         session.updated_at = datetime.now().isoformat()
@@ -135,7 +147,7 @@ class SessionManager:
         if not session:
             return False
 
-        session.history = []
+        session.workspace.history = []
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
         return True
@@ -156,25 +168,22 @@ class SessionManager:
             return None
 
         if name is not None:
-            session.name = name
+            session.info.name = name
         if world_setting is not None:
-            session.world_setting = world_setting
+            session.workspace.world_setting = world_setting
         if session_config is not None:
-            session.session_config = session_config
+            session.info.session_config = session_config
         if characters is not None:
-            session.characters = characters
+            session.workspace.characters = characters
         if locations is not None:
-            session.locations = locations
+            session.workspace.locations = locations
 
-        # 写作配置（世界设定、会话配置）属于全局设定，
-        # 编辑后需要同步到主线快照，避免侧边栏显示与实际不一致
-        if world_setting is not None and session.mainline_world_setting is not None:
-            session.mainline_world_setting = world_setting.model_copy(deep=True)
-        if session_config is not None and session.mainline_session_config is not None:
-            session.mainline_session_config = session_config.model_copy(deep=True)
+        # 世界设定属于工作区设定，编辑后同步到主线快照，避免侧边栏显示与实际不一致
+        if world_setting is not None:
+            session.mainline_state.world_setting = world_setting.model_copy(deep=True)
 
         # 如果还没有主线条目，保持主线快照与当前状态同步
-        if not session.mainline:
+        if not session.info.mainline:
             self._snapshot_mainline_state(session)
 
         session.updated_at = datetime.now().isoformat()
@@ -188,7 +197,6 @@ class SessionManager:
         session_id: str,
         characters: dict[str, CharacterState] | None = None,
         world_setting: WorldSetting | None = None,
-        session_config: SessionConfig | None = None,
         locations: dict[str, LocationSetting] | None = None,
     ) -> Session | None:
         session = self.get_session(session_id)
@@ -196,13 +204,11 @@ class SessionManager:
             return None
 
         if characters is not None:
-            session.mainline_characters = characters
+            session.mainline_state.characters = characters
         if world_setting is not None:
-            session.mainline_world_setting = world_setting
-        if session_config is not None:
-            session.mainline_session_config = session_config
+            session.mainline_state.world_setting = world_setting
         if locations is not None:
-            session.mainline_locations = locations
+            session.mainline_state.locations = locations
 
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
@@ -215,12 +221,14 @@ class SessionManager:
         for f in SESSIONS_DIR.glob("*.json"):
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
+                info = data.get("info", {})
+                workspace = data.get("workspace", {})
                 sessions.append({
                     "session_id": data.get("session_id", ""),
-                    "name": data.get("name", "未命名"),
+                    "name": info.get("name", "未命名"),
                     "created_at": data.get("created_at", ""),
                     "updated_at": data.get("updated_at", ""),
-                    "steps_count": len(data.get("history", [])),
+                    "steps_count": len(workspace.get("history", [])),
                 })
             except Exception:
                 continue
@@ -247,10 +255,10 @@ class SessionManager:
 
     def mainline_needs_summary_update(self, session: Session) -> bool:
         """检查主线是否有变化，需要重新生成概述"""
-        if not session.mainline:
+        if not session.info.mainline:
             return False
-        current_hash = self._compute_mainline_hash(session.mainline)
-        return current_hash != session.mainline_summary_hash
+        current_hash = self._compute_mainline_hash(session.info.mainline)
+        return current_hash != session.info.mainline_summary_hash
 
     def add_mainline_entry(
         self,
@@ -267,16 +275,16 @@ class SessionManager:
         entry = MainlineEntry(
             text=text,
             note=note,
-            order=len(session.mainline),
+            order=len(session.info.mainline),
         )
 
-        if insert_index is not None and 0 <= insert_index <= len(session.mainline):
-            session.mainline.insert(insert_index, entry)
+        if insert_index is not None and 0 <= insert_index <= len(session.info.mainline):
+            session.info.mainline.insert(insert_index, entry)
         else:
-            session.mainline.append(entry)
+            session.info.mainline.append(entry)
 
         # 重新计算所有条目的 order
-        for i, e in enumerate(session.mainline):
+        for i, e in enumerate(session.info.mainline):
             e.order = i
 
         # 根据主线条目对应的历史步骤更新主线快照
@@ -287,58 +295,41 @@ class SessionManager:
         return entry
 
     def _snapshot_mainline_state(self, session: Session) -> None:
-        """将当前会话状态快照到主线状态字段（仅作回退使用）"""
-        session.mainline_characters = {
+        """将当前工作区状态快照到主线状态（仅作回退使用）"""
+        session.mainline_state.characters = {
             name: char.model_copy(deep=True)
-            for name, char in session.characters.items()
+            for name, char in session.workspace.characters.items()
         }
-        if session.world_setting:
-            session.mainline_world_setting = session.world_setting.model_copy(deep=True)
-        if session.session_config:
-            session.mainline_session_config = session.session_config.model_copy(deep=True)
-        session.mainline_locations = {
+        session.mainline_state.world_setting = session.workspace.world_setting.model_copy(deep=True)
+        session.mainline_state.locations = {
             name: loc.model_copy(deep=True)
-            for name, loc in session.locations.items()
+            for name, loc in session.workspace.locations.items()
         }
 
     def sync_mainline_to_workspace(self, session_id: str) -> Session | None:
-        """将主线状态同步到工作区状态（角色、世界设定、会话配置、地点）"""
+        """将主线状态同步到工作区状态（角色、世界设定、地点）"""
         session = self.get_session(session_id)
         if not session:
             return None
-        session.characters = {
+        session.workspace.characters = {
             name: char.model_copy(deep=True)
-            for name, char in session.mainline_characters.items()
+            for name, char in session.mainline_state.characters.items()
         }
-        if session.mainline_world_setting:
-            session.world_setting = session.mainline_world_setting.model_copy(deep=True)
-        if session.mainline_session_config:
-            session.session_config = session.mainline_session_config.model_copy(deep=True)
-        session.locations = {
+        session.workspace.world_setting = session.mainline_state.world_setting.model_copy(deep=True)
+        session.workspace.locations = {
             name: loc.model_copy(deep=True)
-            for name, loc in session.mainline_locations.items()
+            for name, loc in session.mainline_state.locations.items()
         }
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
         return session
 
     def sync_workspace_to_mainline(self, session_id: str) -> Session | None:
-        """将工作区状态应用到主线状态（角色、世界设定、会话配置、地点）"""
+        """将工作区状态应用到主线状态（角色、世界设定、地点）"""
         session = self.get_session(session_id)
         if not session:
             return None
-        session.mainline_characters = {
-            name: char.model_copy(deep=True)
-            for name, char in session.characters.items()
-        }
-        if session.world_setting:
-            session.mainline_world_setting = session.world_setting.model_copy(deep=True)
-        if session.session_config:
-            session.mainline_session_config = session.session_config.model_copy(deep=True)
-        session.mainline_locations = {
-            name: loc.model_copy(deep=True)
-            for name, loc in session.locations.items()
-        }
+        self._snapshot_mainline_state(session)
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
         return session
@@ -350,40 +341,36 @@ class SessionManager:
         取时间上最晚的步骤快照作为主线状态。这样可确保只有已收入主线的
         内容所对应的状态才会进入主线快照，避免未合并内容污染主线。
         """
-        if not session.mainline:
-            # 主线为空时清空快照
-            session.mainline_characters = {}
-            session.mainline_world_setting = None
-            session.mainline_session_config = None
-            session.mainline_locations = {}
+        if not session.info.mainline:
+            # 主线为空时重置快照
+            session.mainline_state = MainlineState()
             return
 
-        if not session.history:
-            # 没有历史记录则回退到当前状态
+        if not session.workspace.history:
+            # 没有历史记录则回退到当前工作区状态
             self._snapshot_mainline_state(session)
             return
 
         # 建立 generated_text -> 最新步骤索引 的映射
         text_to_step_idx: dict[str, int] = {}
-        for idx, step in enumerate(session.history):
+        for idx, step in enumerate(session.workspace.history):
             text_to_step_idx[step.generated_text] = idx
 
         # 找出所有主线条目对应的历史步骤中，时间上最晚的那个
         latest_step_idx = -1
-        for entry in session.mainline:
+        for entry in session.info.mainline:
             step_idx = text_to_step_idx.get(entry.text, -1)
             if step_idx > latest_step_idx:
                 latest_step_idx = step_idx
 
         if latest_step_idx >= 0:
-            target_step = session.history[latest_step_idx]
-            session.mainline_characters = {
+            target_step = session.workspace.history[latest_step_idx]
+            session.mainline_state.characters = {
                 name: char.model_copy(deep=True)
                 for name, char in target_step.characters_snapshot.items()
             }
-            session.mainline_world_setting = target_step.world_snapshot.model_copy(deep=True)
-            session.mainline_session_config = target_step.session_config_snapshot.model_copy(deep=True)
-            session.mainline_locations = {
+            session.mainline_state.world_setting = target_step.world_snapshot.model_copy(deep=True)
+            session.mainline_state.locations = {
                 name: loc.model_copy(deep=True)
                 for name, loc in target_step.locations_snapshot.items()
             }
@@ -397,14 +384,14 @@ class SessionManager:
         if not session:
             return False
 
-        original_len = len(session.mainline)
-        session.mainline = [e for e in session.mainline if e.entry_id != entry_id]
+        original_len = len(session.info.mainline)
+        session.info.mainline = [e for e in session.info.mainline if e.entry_id != entry_id]
 
-        if len(session.mainline) == original_len:
+        if len(session.info.mainline) == original_len:
             return False  # 没找到该条目
 
         # 重新计算 order
-        for i, e in enumerate(session.mainline):
+        for i, e in enumerate(session.info.mainline):
             e.order = i
 
         # 重新计算主线快照（最晚的主线条目可能已变化）
@@ -426,7 +413,7 @@ class SessionManager:
         if not session:
             return None
 
-        for entry in session.mainline:
+        for entry in session.info.mainline:
             if entry.entry_id == entry_id:
                 if text is not None:
                     entry.text = text
@@ -445,14 +432,14 @@ class SessionManager:
             return False
 
         # 构建 ID -> Entry 的映射
-        entry_map = {e.entry_id: e for e in session.mainline}
+        entry_map = {e.entry_id: e for e in session.info.mainline}
 
         # 验证所有 ID 都存在
         if set(entry_ids) != set(entry_map.keys()):
             return False
 
-        session.mainline = [entry_map[eid] for eid in entry_ids]
-        for i, e in enumerate(session.mainline):
+        session.info.mainline = [entry_map[eid] for eid in entry_ids]
+        for i, e in enumerate(session.info.mainline):
             e.order = i
 
         # 重新排序不改变条目集合，但保持一致性
@@ -472,8 +459,8 @@ class SessionManager:
         if not session:
             return False
 
-        session.mainline_summary = summary
-        session.mainline_summary_hash = self._compute_mainline_hash(session.mainline)
+        session.info.mainline_summary = summary
+        session.info.mainline_summary_hash = self._compute_mainline_hash(session.info.mainline)
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
         return True
@@ -488,7 +475,7 @@ class SessionManager:
         if not session:
             return False
 
-        session.mainline_prefix = prefix
+        session.info.mainline_prefix = prefix
         session.updated_at = datetime.now().isoformat()
         self._save_to_disk(session)
         return True
@@ -503,7 +490,7 @@ class SessionManager:
     ) -> Session | None:
         """基于旧会话新开一个章节。
 
-        - 复制旧会话的主线状态（角色/世界/配置/地点）作为新会话的初始状态
+        - 复制旧会话的主线状态（角色/世界/地点）和会话配置作为新会话的初始状态
         - 使用生成好的 new_prefix 作为新会话的前情概述
         - 新会话的主线和历史为空
 
@@ -521,35 +508,24 @@ class SessionManager:
 
         # 确定新会话名称
         if not new_name:
-            new_name = old_session.name + "（续）"
+            new_name = old_session.info.name + "（续）"
 
-        # 从旧会话的主线状态深拷贝
+        # 从旧会话的主线状态深拷贝（优先主线状态，回退到工作区）
+        ms = old_session.mainline_state
+        wk = old_session.workspace
+
         new_characters = {
             name: char.model_copy(deep=True)
-            for name, char in old_session.mainline_characters.items()
-        } if old_session.mainline_characters else {
-            name: char.model_copy(deep=True)
-            for name, char in old_session.characters.items()
+            for name, char in (ms.characters or wk.characters).items()
         }
 
-        new_world = (
-            old_session.mainline_world_setting.model_copy(deep=True)
-            if old_session.mainline_world_setting
-            else old_session.world_setting.model_copy(deep=True)
-        )
+        new_world = (ms.world_setting or wk.world_setting).model_copy(deep=True)
 
-        new_session_config = (
-            old_session.mainline_session_config.model_copy(deep=True)
-            if old_session.mainline_session_config
-            else old_session.session_config.model_copy(deep=True)
-        )
+        new_session_config = old_session.info.session_config.model_copy(deep=True)
 
         new_locations = {
             name: loc.model_copy(deep=True)
-            for name, loc in old_session.mainline_locations.items()
-        } if old_session.mainline_locations else {
-            name: loc.model_copy(deep=True)
-            for name, loc in old_session.locations.items()
+            for name, loc in (ms.locations or wk.locations).items()
         }
 
         # 创建新会话
@@ -562,7 +538,7 @@ class SessionManager:
         )
 
         # 设置前情概述
-        new_session.mainline_prefix = new_prefix
+        new_session.info.mainline_prefix = new_prefix
         self._save_to_disk(new_session)
 
         return new_session
@@ -572,24 +548,24 @@ class SessionManager:
     def export_mainline(self, session_id: str) -> str | None:
         """将主线内容导出为 TXT 文件，返回文件路径"""
         session = self.get_session(session_id)
-        if not session or not session.mainline:
+        if not session or not session.info.mainline:
             return None
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_name = session.name.replace("/", "_").replace("\\", "_")
+        safe_name = session.info.name.replace("/", "_").replace("\\", "_")
         filename = f"{safe_name}_主线_{timestamp}.txt"
         filepath = EXPORTS_DIR / filename
 
         lines = []
-        ws = session.world_setting
+        ws = session.workspace.world_setting
         lines.append(f"{'='*60}")
-        lines.append(f"  {ws.title or session.name} — 文章主线")
+        lines.append(f"  {ws.title or session.info.name} — 文章主线")
         lines.append(f"{'='*60}")
         lines.append(f"导出时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"主线片段数：{len(session.mainline)}")
+        lines.append(f"主线片段数：{len(session.info.mainline)}")
         lines.append(f"{'='*60}\n")
 
-        for entry in session.mainline:
+        for entry in session.info.mainline:
             lines.append(entry.text)
             lines.append("")
 
@@ -599,11 +575,11 @@ class SessionManager:
     def export_novel(self, session_id: str, format: str = "txt") -> str | None:
         """将小说片段合集导出为文件，返回文件路径"""
         session = self.get_session(session_id)
-        if not session or not session.history:
+        if not session or not session.workspace.history:
             return None
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_name = session.name.replace("/", "_").replace("\\", "_")
+        safe_name = session.info.name.replace("/", "_").replace("\\", "_")
 
         if format == "txt":
             filename = f"{safe_name}_{timestamp}.txt"
@@ -620,16 +596,16 @@ class SessionManager:
 
     def _export_txt(self, session: Session, filepath: Path):
         lines = []
-        ws = session.world_setting
+        ws = session.workspace.world_setting
         lines.append(f"{'='*60}")
-        lines.append(f"  {ws.title or session.name}")
+        lines.append(f"  {ws.title or session.info.name}")
         lines.append(f"{'='*60}")
         lines.append(f"类型：{ws.genre}")
         lines.append(f"导出时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"总片段数：{len(session.history)}")
+        lines.append(f"总片段数：{len(session.workspace.history)}")
         lines.append(f"{'='*60}\n")
 
-        for i, step in enumerate(session.history, 1):
+        for i, step in enumerate(session.workspace.history, 1):
             lines.append(f"--- 第 {i} 段 ---\n")
             lines.append(step.generated_text)
             lines.append("")
@@ -638,25 +614,25 @@ class SessionManager:
 
     def _export_markdown(self, session: Session, filepath: Path):
         lines = []
-        ws = session.world_setting
-        lines.append(f"# {ws.title or session.name}\n")
+        ws = session.workspace.world_setting
+        lines.append(f"# {ws.title or session.info.name}\n")
         lines.append(f"> **类型**：{ws.genre}  ")
         lines.append(f"> **导出时间**：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ")
-        lines.append(f"> **总片段数**：{len(session.history)}\n")
+        lines.append(f"> **总片段数**：{len(session.workspace.history)}\n")
 
         if ws.background:
             lines.append(f"## 世界观\n\n{ws.background}\n")
 
         lines.append("## 正文\n")
-        for i, step in enumerate(session.history, 1):
+        for i, step in enumerate(session.workspace.history, 1):
             lines.append(f"### 第 {i} 段\n")
             lines.append(step.generated_text)
             lines.append("")
 
         # 附录：角色状态
-        if session.characters:
+        if session.workspace.characters:
             lines.append("## 附录：角色最终状态\n")
-            for name, char in session.characters.items():
+            for name, char in session.workspace.characters.items():
                 lines.append(f"### {name}\n")
                 lines.append(f"- **描述**：{char.description}")
                 lines.append(f"- **外貌**：{char.appearance}")

@@ -44,7 +44,7 @@ async function addCharacter() {
 
   try {
     const session = await apiJson(`/api/session/${currentSessionId}`);
-    const chars = session.characters || {};
+    const chars = (session.workspace && session.workspace.characters) || {};
     chars[name] = {
       name,
       description: $('#charDesc').value.trim(),
@@ -66,7 +66,7 @@ async function addCharacter() {
 
     closeModal('addCharacterModal');
     if (_currentSession) {
-      _currentSession.characters = updated.characters || {};
+      _currentSession.workspace.characters = (updated.workspace && updated.workspace.characters) || {};
       renderWorkspace(_currentSession);
     }
     showToast(`角色「${name}」已添加`);
@@ -80,8 +80,8 @@ function openEditCharState(charName, target) {
   if (!currentSessionId || !_currentSession) { showToast('请先选择一个会话'); return; }
 
   const chars = target === 'mainline'
-    ? (_currentSession.mainline_characters || {})
-    : (_currentSession.characters || {});
+    ? ((_currentSession.mainline_state && _currentSession.mainline_state.characters) || {})
+    : ((_currentSession.workspace && _currentSession.workspace.characters) || {});
   const char = charName ? chars[charName] : null;
   const isNew = !char;
 
@@ -199,9 +199,9 @@ async function saveCharState() {
   try {
     let chars;
     if (target === 'mainline') {
-      chars = { ...(_currentSession.mainline_characters || {}) };
+      chars = { ...((_currentSession.mainline_state && _currentSession.mainline_state.characters) || {}) };
     } else {
-      chars = { ...(_currentSession.characters || {}) };
+      chars = { ...((_currentSession.workspace && _currentSession.workspace.characters) || {}) };
     }
     if (origName && origName !== newName) delete chars[origName];
     chars[newName] = charObj;
@@ -233,9 +233,9 @@ async function deleteCharFromState() {
   try {
     let chars;
     if (target === 'mainline') {
-      chars = { ...(_currentSession.mainline_characters || {}) };
+      chars = { ...((_currentSession.mainline_state && _currentSession.mainline_state.characters) || {}) };
     } else {
-      chars = { ...(_currentSession.characters || {}) };
+      chars = { ...((_currentSession.workspace && _currentSession.workspace.characters) || {}) };
     }
     delete chars[origName];
 

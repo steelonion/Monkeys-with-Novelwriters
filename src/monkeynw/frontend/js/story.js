@@ -113,10 +113,12 @@ async function generate() {
         _currentSession = fullSession;
       } catch (_) {
         // 回退：至少更新已有字段
-        _currentSession.characters = data.characters || {};
-        _currentSession.world_setting = data.world_setting;
-        _currentSession.session_config = data.session_config;
-        _currentSession.locations = data.locations || {};
+        if (!_currentSession.workspace) _currentSession.workspace = {};
+        _currentSession.workspace.characters = data.characters || {};
+        _currentSession.workspace.world_setting = data.world_setting;
+        if (!_currentSession.info) _currentSession.info = {};
+        _currentSession.info.session_config = data.session_config;
+        _currentSession.workspace.locations = data.locations || {};
       }
       renderWorkspace(_currentSession);
     }

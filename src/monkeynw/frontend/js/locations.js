@@ -29,7 +29,7 @@ async function addLocation() {
 
   try {
     const session = await apiJson(`/api/session/${currentSessionId}`);
-    const locs = session.locations || {};
+    const locs = (session.workspace && session.workspace.locations) || {};
     locs[name] = {
       name,
       description: $('#locDesc').value.trim(),
@@ -46,7 +46,7 @@ async function addLocation() {
 
     closeModal('addLocationModal');
     if (_currentSession) {
-      _currentSession.locations = updated.locations || {};
+      _currentSession.workspace.locations = (updated.workspace && updated.workspace.locations) || {};
       renderWorkspace(_currentSession);
     }
     showToast(`地点「${name}」已添加`);
@@ -60,8 +60,8 @@ function openEditLocState(locName, target) {
   if (!currentSessionId || !_currentSession) { showToast('请先选择一个会话'); return; }
 
   const locs = target === 'mainline'
-    ? (_currentSession.mainline_locations || {})
-    : (_currentSession.locations || {});
+    ? ((_currentSession.mainline_state && _currentSession.mainline_state.locations) || {})
+    : ((_currentSession.workspace && _currentSession.workspace.locations) || {});
   const loc = locName ? locs[locName] : null;
   const isNew = !loc;
 
@@ -101,9 +101,9 @@ async function saveLocState() {
   try {
     let locs;
     if (target === 'mainline') {
-      locs = { ...(_currentSession.mainline_locations || {}) };
+      locs = { ...((_currentSession.mainline_state && _currentSession.mainline_state.locations) || {}) };
     } else {
-      locs = { ...(_currentSession.locations || {}) };
+      locs = { ...((_currentSession.workspace && _currentSession.workspace.locations) || {}) };
     }
     if (origName && origName !== newName) delete locs[origName];
     locs[newName] = locObj;
@@ -135,9 +135,9 @@ async function deleteLocFromState() {
   try {
     let locs;
     if (target === 'mainline') {
-      locs = { ...(_currentSession.mainline_locations || {}) };
+      locs = { ...((_currentSession.mainline_state && _currentSession.mainline_state.locations) || {}) };
     } else {
-      locs = { ...(_currentSession.locations || {}) };
+      locs = { ...((_currentSession.workspace && _currentSession.workspace.locations) || {}) };
     }
     delete locs[origName];
 

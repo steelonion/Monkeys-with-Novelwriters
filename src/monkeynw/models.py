@@ -94,23 +94,12 @@ class MainlineEntry(BaseModel):
     note: str = Field(default="", description="用户对该条目的备注")
 
 
-# ────────────────────────────── 会话 ──────────────────────────────────
+# ────────────────────────────── 会话子结构 ──────────────────────────────
 
-class Session(BaseModel):
-    """一个完整的写作会话"""
-    session_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
-    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+class SessionInfo(BaseModel):
+    """会话自身信息：名称、写作配置、主线条目与概述"""
     name: str = Field(default="未命名会话", description="会话名称")
-
-    # 当前状态
-    world_setting: WorldSetting = Field(default_factory=WorldSetting)
-    session_config: SessionConfig = Field(default_factory=SessionConfig)
-    characters: dict[str, CharacterState] = Field(default_factory=dict, description="角色名 -> 角色状态")
-    locations: dict[str, LocationSetting] = Field(default_factory=dict, description="地点名 -> 地点设定")
-
-    # 历史记录(支持撤销)
-    history: list[HistoryStep] = Field(default_factory=list, description="生成历史")
+    session_config: SessionConfig = Field(default_factory=SessionConfig, description="写作配置（剧情弧/指令/自定义字段）")
 
     # 文章主线
     mainline: list[MainlineEntry] = Field(default_factory=list, description="文章主线条目列表")
@@ -118,11 +107,33 @@ class Session(BaseModel):
     mainline_summary_hash: str = Field(default="", description="生成概述时主线内容的哈希，用于判断是否需要重新生成")
     mainline_prefix: str = Field(default="", description="手动插入的前情概述，用于在新会话中压缩之前章节的内容")
 
-    # 主线状态快照（收入主线时冻结的"正式"状态）
-    mainline_characters: dict[str, CharacterState] = Field(default_factory=dict, description="主线快照：角色状态")
-    mainline_world_setting: Optional[WorldSetting] = Field(default=None, description="主线快照：世界设定")
-    mainline_session_config: Optional[SessionConfig] = Field(default=None, description="主线快照：会话配置")
-    mainline_locations: dict[str, LocationSetting] = Field(default_factory=dict, description="主线快照：地点设定")
+
+class MainlineState(BaseModel):
+    """主线状态快照 — 收入主线时冻结的 '正式' 状态"""
+    characters: dict[str, CharacterState] = Field(default_factory=dict, description="角色状态")
+    world_setting: WorldSetting = Field(default_factory=WorldSetting, description="世界设定")
+    locations: dict[str, LocationSetting] = Field(default_factory=dict, description="地点设定")
+
+
+class WorkspaceState(BaseModel):
+    """工作区状态 — 续写/草稿用"""
+    characters: dict[str, CharacterState] = Field(default_factory=dict, description="角色名 -> 角色状态")
+    world_setting: WorldSetting = Field(default_factory=WorldSetting, description="世界设定")
+    locations: dict[str, LocationSetting] = Field(default_factory=dict, description="地点名 -> 地点设定")
+    history: list[HistoryStep] = Field(default_factory=list, description="生成历史(支持撤销)")
+
+
+# ────────────────────────────── 会话 ──────────────────────────────────
+
+class Session(BaseModel):
+    """一个完整的写作会话，分为三大块：会话信息、主线状态、工作区状态"""
+    session_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+    info: SessionInfo = Field(default_factory=SessionInfo, description="会话自身信息与配置")
+    mainline_state: MainlineState = Field(default_factory=MainlineState, description="主线状态快照")
+    workspace: WorkspaceState = Field(default_factory=WorkspaceState, description="工作区状态")
 
 
 # ────────────────────────────── API 请求/响应 ─────────────────────────
@@ -187,7 +198,6 @@ class UpdateMainlineStateRequest(BaseModel):
     """更新主线状态快照"""
     characters: Optional[dict[str, CharacterState]] = None
     world_setting: Optional[WorldSetting] = None
-    session_config: Optional[SessionConfig] = None
     locations: Optional[dict[str, LocationSetting]] = None
 
 

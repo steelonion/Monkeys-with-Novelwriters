@@ -399,26 +399,26 @@ def _build_custom_field_defs_hint(sc: SessionConfig) -> str:
 
 def build_chat_system_prompt(session: Session) -> str:
     """构建自由聊天的系统提示词，包含完整的小说上下文"""
-    ws = session.world_setting
-    sc = session.session_config
+    ws = session.workspace.world_setting
+    sc = session.info.session_config
 
     rules_text = "\n".join(f"  - {r}" for r in ws.rules) if ws.rules else "暂无"
     extra = ""
     if ws.extra_settings:
         extra = "\n".join(f"- {k}：{v}" for k, v in ws.extra_settings.items())
 
-    mainline_summary = session.mainline_summary.strip() if session.mainline_summary else ""
+    mainline_summary = session.info.mainline_summary.strip() if session.info.mainline_summary else ""
     if not mainline_summary:
-        if session.mainline:
+        if session.info.mainline:
             mainline_summary = "（主线已有内容但概述尚未生成）"
         else:
             mainline_summary = "（暂无主线内容）"
 
-    mainline_prefix = session.mainline_prefix.strip() if session.mainline_prefix else "（暂无前情概述）"
+    mainline_prefix = session.info.mainline_prefix.strip() if session.info.mainline_prefix else "（暂无前情概述）"
 
     # 使用主线状态面板的数据（正式状态）
-    chars = session.mainline_characters if session.mainline_characters else session.characters
-    locs = session.mainline_locations if session.mainline_locations else session.locations
+    chars = session.mainline_state.characters if session.mainline_state.characters else session.workspace.characters
+    locs = session.mainline_state.locations if session.mainline_state.locations else session.workspace.locations
 
     return CHAT_SYSTEM_PROMPT_TEMPLATE.format(
         title=ws.title or "未定",
@@ -432,7 +432,7 @@ def build_chat_system_prompt(session: Session) -> str:
         characters_block=_build_characters_block(chars),
         mainline_prefix=mainline_prefix,
         mainline_summary=mainline_summary,
-        recent_story=_build_recent_story(session.history),
+        recent_story=_build_recent_story(session.workspace.history),
     )
 
 
@@ -473,8 +473,8 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
     
     mode: "continue" = 续写模式, "adjust" = 调整模式
     """
-    ws = session.world_setting
-    sc = session.session_config
+    ws = session.workspace.world_setting
+    sc = session.info.session_config
 
     rules_text = "\n".join(f"  - {r}" for r in ws.rules) if ws.rules else "暂无"
     extra = ""
@@ -482,15 +482,15 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
         extra = "\n".join(f"- {k}：{v}" for k, v in ws.extra_settings.items())
 
     # 主线概述
-    mainline_summary = session.mainline_summary.strip() if session.mainline_summary else ""
+    mainline_summary = session.info.mainline_summary.strip() if session.info.mainline_summary else ""
     if not mainline_summary:
-        if session.mainline:
+        if session.info.mainline:
             mainline_summary = "（主线已有内容但概述尚未生成）"
         else:
             mainline_summary = "（暂无主线内容，这是故事的开端）"
 
     # 前情概述（手动插入的上文概述）
-    mainline_prefix = session.mainline_prefix.strip() if session.mainline_prefix else "（暂无前情概述）"
+    mainline_prefix = session.info.mainline_prefix.strip() if session.info.mainline_prefix else "（暂无前情概述）"
 
     # 构建自定义字段定义提示
     custom_field_defs_hint = _build_custom_field_defs_hint(sc)
@@ -516,7 +516,7 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
     if is_adjust:
         recent_story = "（调整模式：请参考前情概述和文章主线概述，以及用户消息中给出的原始片段）"
     else:
-        recent_story = _build_recent_story(session.history)
+        recent_story = _build_recent_story(session.workspace.history)
 
     return SYSTEM_PROMPT_TEMPLATE.format(
         title=ws.title or "未定",
@@ -526,8 +526,8 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
         current_arc=sc.current_arc or "暂无",
         custom_instructions=sc.custom_instructions or "无特殊要求",
         extra_settings=extra,
-        locations_block=_build_locations_block(session.locations),
-        characters_block=_build_characters_block(session.characters),
+        locations_block=_build_locations_block(session.workspace.locations),
+        characters_block=_build_characters_block(session.workspace.characters),
         mainline_prefix=mainline_prefix,
         mainline_summary=mainline_summary,
         recent_story=recent_story,
@@ -702,8 +702,8 @@ class AIService:
 
         system_prompt = build_system_prompt(session, suggested_length=suggested_length, mode=mode)
 
-        if mode == "adjust" and session.history:
-            last_step = session.history[-1]
+        if mode == "adjust" and session.workspace.history:
+            last_step = session.workspace.history[-1]
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": (
@@ -734,7 +734,7 @@ class AIService:
                        model=self.model, temperature=temperature, suggested_length=suggested_length)
 
             story_text, updated_chars, updated_world, updated_session_config, updated_locations = parse_ai_response(
-                raw_text, session.characters, session.world_setting, session.session_config, session.locations
+                raw_text, session.workspace.characters, session.workspace.world_setting, session.info.session_config, session.workspace.locations
             )
 
             return story_text, updated_chars, updated_world, updated_session_config, updated_locations

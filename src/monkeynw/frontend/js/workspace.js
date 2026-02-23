@@ -46,13 +46,13 @@ function renderWorkspace(session) {
 
   panelEl.style.display = '';
 
-  const currentChars = session.characters || {};
-  const currentWorld = session.world_setting;
-  const currentLocs = session.locations || {};
+  const currentChars = (session.workspace && session.workspace.characters) || {};
+  const currentWorld = session.workspace && session.workspace.world_setting;
+  const currentLocs = (session.workspace && session.workspace.locations) || {};
 
-  const mainlineChars = session.mainline_characters || {};
-  const mainlineWorld = session.mainline_world_setting || null;
-  const mainlineLocs = session.mainline_locations || {};
+  const mainlineChars = (session.mainline_state && session.mainline_state.characters) || {};
+  const mainlineWorld = (session.mainline_state && session.mainline_state.world_setting) || null;
+  const mainlineLocs = (session.mainline_state && session.mainline_state.locations) || {};
 
   // 主线状态面板
   renderStatePanelCharacters($('#mainlineStateCharacters'), mainlineChars, null, 'mainline');
@@ -214,11 +214,11 @@ function openEditWorldState(target) {
 
   let ws, sc;
   if (target === 'mainline') {
-    ws = _currentSession.mainline_world_setting || {};
-    sc = _currentSession.mainline_session_config || {};
+    ws = (_currentSession.mainline_state && _currentSession.mainline_state.world_setting) || {};
+    sc = (_currentSession.info && _currentSession.info.session_config) || {};
   } else {
-    ws = _currentSession.world_setting || {};
-    sc = _currentSession.session_config || {};
+    ws = (_currentSession.workspace && _currentSession.workspace.world_setting) || {};
+    sc = (_currentSession.info && _currentSession.info.session_config) || {};
   }
 
   $('#editWorldTarget').value = target;
@@ -262,8 +262,8 @@ async function saveWorldState() {
     genre: $('#editWorldGenre').value.trim(),
     background: $('#editWorldBackground').value.trim(),
     rules: target === 'mainline'
-      ? (_currentSession.mainline_world_setting || {}).rules || []
-      : (_currentSession.world_setting || {}).rules || [],
+      ? ((_currentSession.mainline_state && _currentSession.mainline_state.world_setting) || {}).rules || []
+      : ((_currentSession.workspace && _currentSession.workspace.world_setting) || {}).rules || [],
     extra_settings: {},
   };
   document.querySelectorAll('#editWorldExtras .dynamic-row').forEach(row => {
@@ -275,17 +275,21 @@ async function saveWorldState() {
   const scObj = {
     current_arc: $('#editWorldArc').value.trim(),
     custom_instructions: target === 'mainline'
-      ? (_currentSession.mainline_session_config || {}).custom_instructions || ''
-      : (_currentSession.session_config || {}).custom_instructions || '',
+      ? ((_currentSession.info && _currentSession.info.session_config) || {}).custom_instructions || ''
+      : ((_currentSession.info && _currentSession.info.session_config) || {}).custom_instructions || '',
     custom_field_defs: target === 'mainline'
-      ? (_currentSession.mainline_session_config || {}).custom_field_defs || []
-      : (_currentSession.session_config || {}).custom_field_defs || [],
+      ? ((_currentSession.info && _currentSession.info.session_config) || {}).custom_field_defs || []
+      : ((_currentSession.info && _currentSession.info.session_config) || {}).custom_field_defs || [],
   };
 
   try {
     if (target === 'mainline') {
       await apiJson(`/api/session/${currentSessionId}/mainline-state`, {
-        method: 'PUT', body: JSON.stringify({ world_setting: wsObj, session_config: scObj }),
+        method: 'PUT', body: JSON.stringify({ world_setting: wsObj }),
+      });
+      // session_config is unified in info, update via setting endpoint
+      await apiJson('/api/session/setting', {
+        method: 'PUT', body: JSON.stringify({ session_id: currentSessionId, session_config: scObj }),
       });
     } else {
       await apiJson('/api/session/setting', {
@@ -297,7 +301,7 @@ async function saveWorldState() {
     _currentSession = updated;
     renderWorkspace(updated);
     if (target === 'workspace') {
-      const sidebarConfig = updated.mainline_session_config || updated.session_config;
+      const sidebarConfig = (updated.info && updated.info.session_config) || {};
       renderSessionConfig(sidebarConfig);
     }
     closeModal('editWorldStateModal');

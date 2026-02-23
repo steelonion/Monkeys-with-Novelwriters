@@ -20,7 +20,7 @@ function renderSessionList() {
          onclick="selectSession('${s.session_id}')">
       <div class="session-item-info">
         <div class="name">${escHtml(s.name)}</div>
-        <div class="meta">${s.history ? s.history.length : 0} 步</div>
+        <div class="meta">${s.steps_count || 0} 步</div>
       </div>
       <button class="delete-btn" onclick="event.stopPropagation();deleteSession('${s.session_id}')" title="删除">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
@@ -157,9 +157,9 @@ async function openEditSessionModal() {
     const session = await apiJson(`/api/session/${currentSessionId}`);
     sessionModalMode = 'edit';
 
-    const ws = session.world_setting || {};
-    const sc = session.session_config || {};
-    $('#newSessionName').value = session.name || '';
+    const ws = (session.workspace && session.workspace.world_setting) || {};
+    const sc = (session.info && session.info.session_config) || {};
+    $('#newSessionName').value = (session.info && session.info.name) || '';
     $('#newTitle').value = ws.title || '';
     $('#newGenre').value = ws.genre || '';
     $('#newBackground').value = ws.background || '';
@@ -189,7 +189,7 @@ async function openEditSessionModal() {
 async function updateSessionSettings() {
   const name = $('#newSessionName').value.trim() || '未命名会话';
   // 保留现有 extra_settings，避免保存时丢失
-  const existingWs = (_currentSession && _currentSession.world_setting) || {};
+  const existingWs = (_currentSession && _currentSession.workspace && _currentSession.workspace.world_setting) || {};
   const ws = {
     title: $('#newTitle').value.trim(),
     genre: $('#newGenre').value.trim(),
@@ -244,11 +244,12 @@ async function selectSession(sid) {
 function renderSession(session) {
   _currentSession = session;
 
-  $('#sessionTitle').textContent = session.name || '未命名会话';
+  $('#sessionTitle').textContent = (session.info && session.info.name) || '未命名会话';
   $('#inputArea').style.display = '';
   $('#mainTabBar').style.display = '';
-  $('#btnUndo').disabled = !session.history || session.history.length === 0;
-  $('#btnClearHistory').disabled = !session.history || session.history.length === 0;
+  const history = (session.workspace && session.workspace.history) || [];
+  $('#btnUndo').disabled = history.length === 0;
+  $('#btnClearHistory').disabled = history.length === 0;
   $('#btnNewChapter').disabled = false;
 
   // 切换到写作 Tab & 清理聊天历史
@@ -256,19 +257,19 @@ function renderSession(session) {
   clearChatHistory();
 
   // 写作配置面板
-  const sidebarConfig = session.mainline_session_config || session.session_config;
+  const sidebarConfig = (session.info && session.info.session_config) || {};
   $('#sessionConfigPanel').style.display = '';
   renderSessionConfig(sidebarConfig);
 
   // 主线面板
   $('#mainlinePanel').style.display = '';
-  currentMainline = session.mainline || [];
-  currentMainlineSummary = session.mainline_summary || '';
-  currentMainlinePrefix = session.mainline_prefix || '';
+  currentMainline = (session.info && session.info.mainline) || [];
+  currentMainlineSummary = (session.info && session.info.mainline_summary) || '';
+  currentMainlinePrefix = (session.info && session.info.mainline_prefix) || '';
   renderMainlinePanel();
 
   // 故事区
-  renderStory(session.history || []);
+  renderStory(history);
 
   // 右侧工作区
   renderWorkspace(session);
