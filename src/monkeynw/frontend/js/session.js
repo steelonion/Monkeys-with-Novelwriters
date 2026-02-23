@@ -188,11 +188,14 @@ async function openEditSessionModal() {
 
 async function updateSessionSettings() {
   const name = $('#newSessionName').value.trim() || '未命名会话';
+  // 保留现有 extra_settings，避免保存时丢失
+  const existingWs = (_currentSession && _currentSession.world_setting) || {};
   const ws = {
     title: $('#newTitle').value.trim(),
     genre: $('#newGenre').value.trim(),
     background: $('#newBackground').value.trim(),
     rules: $('#newRules').value.trim().split('\n').filter(Boolean),
+    extra_settings: existingWs.extra_settings || {},
   };
   const sc = {
     current_arc: $('#newArc').value.trim(),

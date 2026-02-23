@@ -166,6 +166,13 @@ class SessionManager:
         if locations is not None:
             session.locations = locations
 
+        # 写作配置（世界设定、会话配置）属于全局设定，
+        # 编辑后需要同步到主线快照，避免侧边栏显示与实际不一致
+        if world_setting is not None and session.mainline_world_setting is not None:
+            session.mainline_world_setting = world_setting.model_copy(deep=True)
+        if session_config is not None and session.mainline_session_config is not None:
+            session.mainline_session_config = session_config.model_copy(deep=True)
+
         # 如果还没有主线条目，保持主线快照与当前状态同步
         if not session.mainline:
             self._snapshot_mainline_state(session)
