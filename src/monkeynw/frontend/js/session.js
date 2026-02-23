@@ -243,9 +243,14 @@ function renderSession(session) {
 
   $('#sessionTitle').textContent = session.name || '未命名会话';
   $('#inputArea').style.display = '';
+  $('#mainTabBar').style.display = '';
   $('#btnUndo').disabled = !session.history || session.history.length === 0;
   $('#btnClearHistory').disabled = !session.history || session.history.length === 0;
   $('#btnNewChapter').disabled = false;
+
+  // 切换到写作 Tab & 清理聊天历史
+  switchMainTab('story');
+  clearChatHistory();
 
   // 写作配置面板
   const sidebarConfig = session.mainline_session_config || session.session_config;
@@ -270,6 +275,7 @@ function showWelcome() {
   _currentSession = null;
   $('#sessionTitle').textContent = '请选择或创建一个会话';
   $('#inputArea').style.display = 'none';
+  $('#mainTabBar').style.display = 'none';
   $('#sessionConfigPanel').style.display = 'none';
   $('#mainlinePanel').style.display = 'none';
   $('#btnUndo').disabled = true;
@@ -279,6 +285,9 @@ function showWelcome() {
   currentMainlineSummary = '';
   currentMainlinePrefix = '';
   $('#statePanel').style.display = 'none';
+  // 确保回到写作 Tab
+  switchMainTab('story');
+  clearChatHistory();
   $('#storyArea').innerHTML = `
     <div class="story-welcome">
       <div class="welcome-icon">✨</div>

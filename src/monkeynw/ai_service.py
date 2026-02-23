@@ -190,6 +190,73 @@ def compute_auto_summary_length(total_chars: int) -> int:
     return max(800, min(5000, target))
 
 
+CHAT_SYSTEM_PROMPT_TEMPLATE = """\
+你是一位专业的小说创作顾问，正在与用户就一部小说进行自由讨论。你可以帮助用户：
+1. **剧情建议**：根据用户的思路和当前剧情走向，提供后续剧情的建议、展开方式、冲突设计等。
+2. **状态提取与更新**：根据用户的要求，从前文中提取某个信息，并建议将其补充到角色/世界/地点的某个状态字段中。
+
+## 当前小说设定
+- 标题：{title}
+- 类型：{genre}
+- 世界观：{background}
+- 世界规则：{rules}
+- 当前剧情弧：{current_arc}
+- 写作风格要求：{custom_instructions}
+{extra_settings}
+
+## 当前地点设定
+{locations_block}
+
+## 当前角色状态
+{characters_block}
+
+## 前情概述
+{mainline_prefix}
+
+## 文章主线概述
+{mainline_summary}
+
+## 最近对话片段
+{recent_story}
+
+## 回复规则
+- 作为创作顾问自然地与用户对话，提供有深度的分析和建议。
+- 当用户询问剧情建议时，给出具体、可操作的方案，可以提供多个方向供选择。
+- 当用户要求提取信息并更新状态时，在回复末尾附上状态更新建议。
+
+## 状态更新格式（仅在用户明确要求更新状态时使用）
+如果用户要求你从前文中提取信息并更新某个状态值，请在回复文本之后，用以下分隔符和 JSON 格式附上建议的更新：
+
+===STATE_UPDATE_SUGGESTION===
+
+```json
+{{
+  "characters": {{
+    "角色名": {{
+      "要更新的字段": "新的值",
+      "custom_fields": {{"字段名": "值"}}
+    }}
+  }},
+  "world_update": {{
+    "current_arc": "新的剧情弧（如需更新）",
+    "extra_settings": {{"key": "value"}}
+  }},
+  "locations_update": {{
+    "地点名": {{
+      "要更新的字段": "新的值"
+    }}
+  }}
+}}
+```
+
+注意：
+- 只在用户**明确要求**更新状态时才附上状态更新 JSON。
+- 普通剧情讨论不需要附状态更新。
+- JSON 中只列出需要变更的字段，不要列出未变化的字段。
+- 如果用户没有要求更新状态，就正常回复即可，不要加分隔符。
+"""
+
+
 PARSE_TEXT_PROMPT = """\
 你是一个文本解析助手。用户会提供一段关于小说设定的自由文本，其中可能包含世界观、角色设定、剧情简介、写作风格等信息。
 
@@ -328,6 +395,77 @@ def _build_custom_field_defs_hint(sc: SessionConfig) -> str:
         desc = f"（{fd.description}）" if fd.description else ""
         lines.append(f"  - `{fd.name}` ({type_hint}){desc}")
     return "\n".join(lines)
+
+
+def build_chat_system_prompt(session: Session) -> str:
+    """构建自由聊天的系统提示词，包含完整的小说上下文"""
+    ws = session.world_setting
+    sc = session.session_config
+
+    rules_text = "\n".join(f"  - {r}" for r in ws.rules) if ws.rules else "暂无"
+    extra = ""
+    if ws.extra_settings:
+        extra = "\n".join(f"- {k}：{v}" for k, v in ws.extra_settings.items())
+
+    mainline_summary = session.mainline_summary.strip() if session.mainline_summary else ""
+    if not mainline_summary:
+        if session.mainline:
+            mainline_summary = "（主线已有内容但概述尚未生成）"
+        else:
+            mainline_summary = "（暂无主线内容）"
+
+    mainline_prefix = session.mainline_prefix.strip() if session.mainline_prefix else "（暂无前情概述）"
+
+    # 使用主线状态面板的数据（正式状态）
+    chars = session.mainline_characters if session.mainline_characters else session.characters
+    locs = session.mainline_locations if session.mainline_locations else session.locations
+
+    return CHAT_SYSTEM_PROMPT_TEMPLATE.format(
+        title=ws.title or "未定",
+        genre=ws.genre or "未定",
+        background=ws.background or "暂无",
+        rules=rules_text,
+        current_arc=sc.current_arc or "暂无",
+        custom_instructions=sc.custom_instructions or "无特殊要求",
+        extra_settings=extra,
+        locations_block=_build_locations_block(locs),
+        characters_block=_build_characters_block(chars),
+        mainline_prefix=mainline_prefix,
+        mainline_summary=mainline_summary,
+        recent_story=_build_recent_story(session.history),
+    )
+
+
+CHAT_STATE_SEPARATOR = "===STATE_UPDATE_SUGGESTION==="
+
+
+def parse_chat_response(raw_text: str) -> tuple[str, dict | None]:
+    """解析聊天回复，分离正文和可选的状态更新建议。
+    返回: (reply_text, state_updates_or_None)
+    """
+    if CHAT_STATE_SEPARATOR in raw_text:
+        reply_text, json_part = raw_text.split(CHAT_STATE_SEPARATOR, 1)
+    else:
+        return raw_text.strip(), None
+
+    reply_text = reply_text.strip()
+    json_str = json_part.strip()
+
+    # 提取 JSON
+    json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", json_str, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1)
+    else:
+        brace_match = re.search(r"\{.*\}", json_str, re.DOTALL)
+        if brace_match:
+            json_str = brace_match.group(0)
+
+    try:
+        state_updates = json.loads(json_str)
+    except json.JSONDecodeError:
+        return reply_text, None
+
+    return reply_text, state_updates
 
 
 def build_system_prompt(session: Session, suggested_length: int = 1000, mode: str = "continue") -> str:
@@ -733,6 +871,48 @@ class AIService:
                        max_length=max_length)
 
             return result
+        finally:
+            _active_tasks -= 1
+
+    async def chat(
+        self,
+        session: Session,
+        user_message: str,
+        chat_history: list[dict],
+        temperature: float = 0.7,
+    ) -> tuple[str, dict | None]:
+        """
+        自由聊天：与用户讨论剧情，提供建议，或按要求提取信息更新状态。
+        返回: (reply_text, state_updates_or_None)
+        """
+        if not self.is_configured:
+            raise RuntimeError("AI 服务未配置，请先设置 API Key")
+
+        system_prompt = build_chat_system_prompt(session)
+
+        messages = [{"role": "system", "content": system_prompt}]
+        # 添加聊天历史
+        for msg in chat_history:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+        # 添加当前用户消息
+        messages.append({"role": "user", "content": user_message})
+
+        global _active_tasks
+        _active_tasks += 1
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+            )
+
+            raw_text = response.choices[0].message.content or ""
+
+            _debug_log("chat", messages, raw_text,
+                       model=self.model, temperature=temperature)
+
+            reply_text, state_updates = parse_chat_response(raw_text)
+            return reply_text, state_updates
         finally:
             _active_tasks -= 1
 

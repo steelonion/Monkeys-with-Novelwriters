@@ -211,3 +211,23 @@ class APIConfigRequest(BaseModel):
     api_key: str
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o"
+
+
+class ChatMessage(BaseModel):
+    """聊天消息"""
+    role: str = Field(..., description="消息角色: user / assistant")
+    content: str = Field(..., description="消息内容")
+
+
+class ChatRequest(BaseModel):
+    """自由聊天请求"""
+    session_id: str
+    message: str = Field(..., description="用户消息")
+    chat_history: list[ChatMessage] = Field(default_factory=list, description="之前的聊天记录")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+
+
+class ChatResponse(BaseModel):
+    """自由聊天响应"""
+    reply: str = Field(..., description="AI 回复文本")
+    state_updates: Optional[dict] = Field(default=None, description="AI 建议的状态更新（如有）")

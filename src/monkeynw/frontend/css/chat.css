@@ -1,0 +1,249 @@
+/* ═══════════════════════════════════════════════════════
+   Monkeys-with-Novelwriters - 主Tab栏 + 自由聊天
+   ═══════════════════════════════════════════════════════ */
+
+/* ─────────── 主内容区 Tab 栏 ─────────── */
+.main-tab-bar {
+  display: flex;
+  gap: 0;
+  padding: 0 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.main-tab-btn {
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition), box-shadow var(--transition);
+  position: relative;
+}
+.main-tab-btn:hover {
+  color: var(--text-primary);
+}
+.main-tab-btn.active {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* Tab 内容区域 */
+.main-tab-content {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+.main-tab-content.active {
+  display: flex;
+}
+
+/* ─────────── 聊天容器 ─────────── */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ─────────── 消息列表 ─────────── */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 欢迎消息 */
+.chat-welcome {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+  margin: auto 0;
+}
+.chat-welcome p {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+.chat-welcome ul {
+  list-style: none;
+  padding: 0;
+  display: inline-block;
+  text-align: left;
+}
+.chat-welcome li {
+  padding: 6px 0;
+  font-size: 0.9rem;
+}
+.chat-welcome-hint {
+  color: var(--text-muted);
+  font-size: 0.82rem !important;
+  margin-top: 16px !important;
+}
+
+/* ─────────── 消息气泡 ─────────── */
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.chat-msg.assistant {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.chat-msg-bubble {
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chat-msg.user .chat-msg-bubble {
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.chat-msg.assistant .chat-msg-bubble {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-msg-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+/* ─────────── 状态更新卡片 ─────────── */
+.chat-state-update-card {
+  margin-top: 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+.chat-state-update-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(124, 106, 239, 0.08);
+  border-bottom: 1px solid var(--border);
+}
+.chat-state-update-card .card-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+.chat-state-update-card .card-body {
+  padding: 10px 12px;
+}
+.chat-state-update-card .card-body pre {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-family: var(--font-sans);
+}
+
+.btn-apply-state {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-apply-state:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-apply-state.applied {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+  cursor: default;
+}
+
+/* ─────────── 思考中动画 ─────────── */
+.chat-typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.chat-typing-dots {
+  display: flex;
+  gap: 4px;
+}
+.chat-typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: chatDot 1.4s infinite ease-in-out both;
+}
+.chat-typing-dots span:nth-child(1) { animation-delay: 0s; }
+.chat-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.chat-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes chatDot {
+  0%, 80%, 100% { transform: scale(0.5); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ─────────── 聊天输入区 ─────────── */
+.chat-input-area {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+.chat-input-area textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  transition: border-color var(--transition);
+}
+.chat-input-area textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.chat-input-area textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.chat-send-btn {
+  align-self: flex-end;
+  padding: 10px 18px;
+  white-space: nowrap;
+}

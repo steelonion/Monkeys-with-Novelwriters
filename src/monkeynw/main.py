@@ -14,7 +14,7 @@ from .models import (
     UpdateSettingRequest, APIConfigRequest, ParseTextRequest,
     AddMainlineRequest, UpdateMainlineEntryRequest, ReorderMainlineRequest,
     UpdateMainlineStateRequest, UpdateMainlinePrefixRequest,
-    NewChapterRequest,
+    NewChapterRequest, ChatRequest, ChatResponse,
     WorldSetting, SessionConfig, CharacterState, LocationSetting,
 )
 from .ai_service import ai_service, get_active_tasks, compute_auto_summary_length
@@ -460,6 +460,35 @@ async def regenerate_mainline_summary(session_id: str):
         "mainline_summary": summary,
         "mainline": [e.model_dump() for e in session.mainline],
     }
+
+
+# ────────────────────────────── 自由聊天 ──────────────────────────────
+
+@app.post("/api/chat")
+async def chat(req: ChatRequest):
+    """自由聊天：与 AI 讨论剧情、提取信息更新状态"""
+    if not ai_service.is_configured:
+        raise HTTPException(status_code=400, detail="请先配置 API Key")
+
+    session = session_manager.get_session(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    try:
+        chat_history = [{"role": m.role, "content": m.content} for m in req.chat_history]
+        reply_text, state_updates = await ai_service.chat(
+            session=session,
+            user_message=req.message,
+            chat_history=chat_history,
+            temperature=req.temperature,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"聊天失败：{str(e)}")
+
+    return ChatResponse(
+        reply=reply_text,
+        state_updates=state_updates,
+    ).model_dump()
 
 
 # ────────────────────────────── 新开章节 ──────────────────────────────
