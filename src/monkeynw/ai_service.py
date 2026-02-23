@@ -302,19 +302,12 @@ def _build_locations_block(locations: dict[str, LocationSetting]) -> str:
     return "\n".join(lines)
 
 
-def _build_recent_story(history, max_steps: int = 3, exclude_last: bool = False) -> str:
-    """从历史记录提取最近的故事片段作为上文（包含用户指令和AI输出的完整对话）
-    
-    exclude_last: 调整模式下应为 True，避免要调整的内容同时出现在上文和用户消息中
-    """
+def _build_recent_story(history, max_steps: int = 3) -> str:
+    """从历史记录提取最近的故事片段作为上文（包含用户指令和AI输出的完整对话）"""
     if not history:
         return "（这是故事的开端，暂无前文）"
 
-    entries = history[:-1] if exclude_last and len(history) > 1 else ([] if exclude_last else history)
-    if not entries:
-        return "（这是故事的开端，暂无前文）"
-
-    recent = entries[-max_steps:]
+    recent = history[-max_steps:]
     parts = []
     for step in recent:
         segment = ""
@@ -368,11 +361,11 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
     is_adjust = (mode == "adjust")
 
     if is_adjust:
-        task_description = "根据用户的调整要求，对指定的小说片段进行修改和重写"
+        task_description = "根据用户的调整要求，对指定的小说片段进行修改和重写，输出一段新的内容"
         mode_specific_rules = (
-            f"4. 你的任务是**修改和重写**用户指定的片段，而不是在其后面续写新内容。\n"
-            f"5. 修改后的片段应保持大致剧情走向不变，但根据用户的调整要求进行改写。\n"
-            f"6. 输出的正文是对原片段的**替换**，不是追加。建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
+            f"4. 你的任务是根据用户的调整要求，基于指定的原始片段进行改写，产出一段新的内容。\n"
+            f"5. 改写后的内容应保持大致剧情走向不变，但根据用户的调整要求进行修改和润色。\n"
+            f"6. 建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
         )
     else:
         task_description = "续写高质量的小说片段"
@@ -381,8 +374,11 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
             f"5. 本次续写的小说正文部分建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
         )
 
-    # 调整模式下排除最后一步（避免与用户消息中重复）
-    recent_story = _build_recent_story(session.history, exclude_last=is_adjust)
+    # 调整模式下不提供历史对话，只依赖前文提要和主线总结（已在系统提示词中）
+    if is_adjust:
+        recent_story = "（调整模式：请参考前情概述和文章主线概述，以及用户消息中给出的原始片段）"
+    else:
+        recent_story = _build_recent_story(session.history)
 
     return SYSTEM_PROMPT_TEMPLATE.format(
         title=ws.title or "未定",
@@ -573,9 +569,9 @@ class AIService:
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": (
-                    f"以下是你上次输出的小说片段，请对其进行修改和重写：\n\n{last_step.generated_text}\n\n"
+                    f"以下是需要调整的原始小说片段：\n\n{last_step.generated_text}\n\n"
                     f"---\n\n"
-                    f"请根据以下调整要求，在保持大致剧情走向不变的前提下，重新输出一个修改后的完整片段。注意：你需要输出的是对上述片段的**替换内容**，而不是在它后面追加新内容。\n\n"
+                    f"请根据以下调整要求，在保持大致剧情走向不变的前提下，重新输出一个改写后的完整片段。\n\n"
                     f"调整要求：{user_prompt}"
                 )},
             ]

@@ -239,27 +239,16 @@ async def generate(req: GenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成失败：{str(e)}")
 
-    # 记录到历史：调整模式替换最后一步，续写模式追加新步
-    if mode == "adjust":
-        step = session_manager.replace_last_step(
-            session_id=req.session_id,
-            user_prompt=req.user_prompt,
-            generated_text=story_text,
-            characters=updated_chars,
-            world_setting=updated_world,
-            session_config=updated_session_config,
-            locations=updated_locations,
-        )
-    else:
-        step = session_manager.add_step(
-            session_id=req.session_id,
-            user_prompt=req.user_prompt,
-            generated_text=story_text,
-            characters=updated_chars,
-            world_setting=updated_world,
-            session_config=updated_session_config,
-            locations=updated_locations,
-        )
+    # 调整模式和续写模式都追加新步
+    step = session_manager.add_step(
+        session_id=req.session_id,
+        user_prompt=req.user_prompt,
+        generated_text=story_text,
+        characters=updated_chars,
+        world_setting=updated_world,
+        session_config=updated_session_config,
+        locations=updated_locations,
+    )
 
     return GenerateResponse(
         story_text=story_text,

@@ -97,43 +97,6 @@ class SessionManager:
 
     # ─────────────── 撤销 ───────────────
 
-    def replace_last_step(
-        self,
-        session_id: str,
-        user_prompt: str,
-        generated_text: str,
-        characters: dict[str, CharacterState],
-        world_setting: WorldSetting,
-        session_config: SessionConfig | None = None,
-        locations: dict[str, LocationSetting] | None = None,
-    ) -> HistoryStep:
-        """替换最后一步（用于调整模式）"""
-        session = self.get_session(session_id)
-        if not session:
-            raise ValueError(f"会话 {session_id} 不存在")
-        if not session.history:
-            raise ValueError("没有可替换的历史步骤")
-
-        # 先回退到上一步的状态
-        session.history.pop()
-        if session.history:
-            prev = session.history[-1]
-            session.characters = {k: v.model_copy(deep=True) for k, v in prev.characters_snapshot.items()}
-            session.world_setting = prev.world_snapshot.model_copy(deep=True)
-            session.session_config = prev.session_config_snapshot.model_copy(deep=True)
-            session.locations = {k: v.model_copy(deep=True) for k, v in prev.locations_snapshot.items()}
-
-        # 用新内容添加一步
-        return self.add_step(
-            session_id=session_id,
-            user_prompt=user_prompt,
-            generated_text=generated_text,
-            characters=characters,
-            world_setting=world_setting,
-            session_config=session_config,
-            locations=locations,
-        )
-
     def undo(self, session_id: str) -> bool:
         session = self.get_session(session_id)
         if not session or not session.history:
