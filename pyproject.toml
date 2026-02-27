@@ -7,14 +7,37 @@ name = "monkeys-with-novelwriters"
 version = "0.1.0"
 description = "Monkeys-with-Novelwriters - AI 小说写作框架"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0"}
 requires-python = ">=3.11"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+keywords = ["novel", "ai", "writing", "llm", "fiction", "creative-writing", "story"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Artistic Software",
+    "Topic :: Text Processing :: Linguistic",
+]
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
     "openai>=1.12.0",
     "pydantic>=2.6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/steelonion/Monkeys-with-Novelwriters"
+Documentation = "https://github.com/steelonion/Monkeys-with-Novelwriters#readme"
+Repository = "https://github.com/steelonion/Monkeys-with-Novelwriters"
+Issues = "https://github.com/steelonion/Monkeys-with-Novelwriters/issues"
 
 [project.scripts]
 monkeynw = "monkeynw.__main__:main"
