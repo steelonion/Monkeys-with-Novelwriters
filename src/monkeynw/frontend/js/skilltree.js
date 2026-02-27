@@ -17,11 +17,12 @@
  *       levels: [
  *         { level: number, effect: string, cost: { skill_points: number, proficiency: number } }
  *       ],
- *       prerequisites: [ { skill_id: string, level: number } ],
- *       position: { x: number, y: number }    // 在画布上的位置
+ *       prerequisites: [ { skill_id: string, level: number } ]
  *     }
  *   }
  * }
+ * 
+ * 布局自动计算：根据 prerequisites 构建 DAG，从上到下排列（根节点在顶部）。
  */
 
 // ─────────── 技能树面板状态 ───────────
@@ -35,9 +36,11 @@ let _skillTreeDragStart = { x: 0, y: 0 };
 let _skillTreeCategoryFilter = null; // null = 显示全部
 
 // 技能节点尺寸常量
-const SKILL_NODE_W = 120;
-const SKILL_NODE_H = 64;
+const SKILL_NODE_W = 130;
+const SKILL_NODE_H = 68;
 const SKILL_NODE_R = 12;
+const SKILL_NODE_GAP_X = 30;  // 同层节点间水平间距
+const SKILL_NODE_GAP_Y = 50;  // 层间垂直间距
 
 function _emptySkillTree() {
   return {
@@ -108,6 +111,139 @@ function _filterSkillTreeCategory(cat) {
   _renderSkillTreeCanvas();
 }
 
+// ─────────── 自动布局算法 ───────────
+
+/**
+ * 计算技能树的自动布局位置。
+ * 基于 DAG（有向无环图），从上到下排列：
+ * - 根节点（无前置或前置不在可见集中）在顶部
+ * - 子节点在其所有父节点下方
+ * - 同层节点水平排列，整体居中
+ */
+function _computeSkillLayout(skills, visibleIds) {
+  if (!visibleIds.length) return {};
+
+  const visibleSet = new Set(visibleIds);
+
+  // 构建邻接表：parent → children (前置 → 依赖它的技能)
+  const children = {};
+  const parents = {};
+  for (const id of visibleIds) {
+    children[id] = [];
+    parents[id] = [];
+  }
+  for (const id of visibleIds) {
+    const prereqs = skills[id].prerequisites || [];
+    for (const p of prereqs) {
+      if (visibleSet.has(p.skill_id)) {
+        parents[id].push(p.skill_id);
+        children[p.skill_id].push(id);
+      }
+    }
+  }
+
+  // 分层: 每个节点的层 = max(所有父节点的层) + 1，根节点层 = 0
+  const layer = {};
+  const visited = new Set();
+  const tempVisited = new Set();
+
+  function assignLayer(id) {
+    if (visited.has(id)) return layer[id];
+    if (tempVisited.has(id)) return 0; // 环路保护
+    tempVisited.add(id);
+    let maxParentLayer = -1;
+    for (const pid of parents[id]) {
+      maxParentLayer = Math.max(maxParentLayer, assignLayer(pid));
+    }
+    layer[id] = maxParentLayer + 1;
+    tempVisited.delete(id);
+    visited.add(id);
+    return layer[id];
+  }
+
+  for (const id of visibleIds) assignLayer(id);
+
+  // 按层分组
+  const layerMap = {};
+  let maxLayer = 0;
+  for (const id of visibleIds) {
+    const l = layer[id];
+    if (!layerMap[l]) layerMap[l] = [];
+    layerMap[l].push(id);
+    if (l > maxLayer) maxLayer = l;
+  }
+
+  // 层内排序：按类别 + 名称，使同分类技能相邻
+  for (let l = 0; l <= maxLayer; l++) {
+    if (!layerMap[l]) continue;
+    layerMap[l].sort((a, b) => {
+      const catA = skills[a].category || '';
+      const catB = skills[b].category || '';
+      if (catA !== catB) return catA.localeCompare(catB);
+      return (skills[a].name || a).localeCompare(skills[b].name || b);
+    });
+  }
+
+  // 初步分配位置：每层居中排列
+  const positions = {};
+  for (let l = 0; l <= maxLayer; l++) {
+    const nodes = layerMap[l] || [];
+    const totalWidth = nodes.length * SKILL_NODE_W + (nodes.length - 1) * SKILL_NODE_GAP_X;
+    const startX = -totalWidth / 2;
+    for (let i = 0; i < nodes.length; i++) {
+      positions[nodes[i]] = {
+        x: startX + i * (SKILL_NODE_W + SKILL_NODE_GAP_X),
+        y: l * (SKILL_NODE_H + SKILL_NODE_GAP_Y)
+      };
+    }
+  }
+
+  // 第二遍：子层节点按父节点的平均水平中心排序
+  for (let l = 1; l <= maxLayer; l++) {
+    const nodes = layerMap[l] || [];
+    if (nodes.length <= 1) continue;
+    nodes.sort((a, b) => {
+      return _avgParentX(a, parents, positions) - _avgParentX(b, parents, positions);
+    });
+    const totalWidth = nodes.length * SKILL_NODE_W + (nodes.length - 1) * SKILL_NODE_GAP_X;
+    const startX = -totalWidth / 2;
+    for (let i = 0; i < nodes.length; i++) {
+      positions[nodes[i]] = {
+        x: startX + i * (SKILL_NODE_W + SKILL_NODE_GAP_X),
+        y: l * (SKILL_NODE_H + SKILL_NODE_GAP_Y)
+      };
+    }
+    layerMap[l] = nodes;
+  }
+
+  // 第三遍微调：单父节点的子节点尽量对齐到父节点正下方
+  for (let l = 1; l <= maxLayer; l++) {
+    const nodes = layerMap[l] || [];
+    for (let i = 0; i < nodes.length; i++) {
+      const id = nodes[i];
+      const pars = parents[id];
+      if (pars.length !== 1) continue;
+      const parentCenterX = positions[pars[0]].x + SKILL_NODE_W / 2;
+      const desiredX = parentCenterX - SKILL_NODE_W / 2;
+      const minX = i > 0 ? positions[nodes[i - 1]].x + SKILL_NODE_W + SKILL_NODE_GAP_X : -Infinity;
+      const maxX = i < nodes.length - 1 ? positions[nodes[i + 1]].x - SKILL_NODE_W - SKILL_NODE_GAP_X : Infinity;
+      positions[id].x = Math.max(minX, Math.min(maxX, desiredX));
+    }
+  }
+
+  return positions;
+}
+
+function _avgParentX(id, parents, positions) {
+  const pars = parents[id] || [];
+  if (!pars.length) return 0;
+  let sum = 0;
+  for (const pid of pars) {
+    sum += (positions[pid] ? positions[pid].x + SKILL_NODE_W / 2 : 0);
+  }
+  return sum / pars.length;
+}
+
 // ─────────── 画布渲染（SVG + 技能节点） ───────────
 function _renderSkillTreeCanvas() {
   const container = $('#skillTreeCanvas');
@@ -124,11 +260,13 @@ function _renderSkillTreeCanvas() {
     return;
   }
 
+  // 自动布局
+  const positions = _computeSkillLayout(skills, visibleIds);
+
   // 计算边界
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const id of visibleIds) {
-    const s = skills[id];
-    const pos = s.position || { x: 0, y: 0 };
+    const pos = positions[id] || { x: 0, y: 0 };
     if (pos.x < minX) minX = pos.x;
     if (pos.y < minY) minY = pos.y;
     if (pos.x + SKILL_NODE_W > maxX) maxX = pos.x + SKILL_NODE_W;
@@ -140,23 +278,28 @@ function _renderSkillTreeCanvas() {
   const ofsX = -minX + pad;
   const ofsY = -minY + pad;
 
-  // 构建连线（前置依赖 → 技能）
+  // 构建连线（前置依赖 → 技能，贝塞尔曲线）
   let lines = '';
   for (const id of visibleIds) {
     const s = skills[id];
     const prereqs = s.prerequisites || [];
     for (const p of prereqs) {
       const from = skills[p.skill_id];
-      if (!from) continue;
+      if (!from || !positions[p.skill_id]) continue;
       if (_skillTreeCategoryFilter && from.category !== _skillTreeCategoryFilter) continue;
-      const fromPos = from.position || { x: 0, y: 0 };
-      const toPos = s.position || { x: 0, y: 0 };
+
+      const fromPos = positions[p.skill_id];
+      const toPos = positions[id];
       const x1 = fromPos.x + ofsX + SKILL_NODE_W / 2;
       const y1 = fromPos.y + ofsY + SKILL_NODE_H;
       const x2 = toPos.x + ofsX + SKILL_NODE_W / 2;
       const y2 = toPos.y + ofsY;
-      const met = from.current_level >= p.level;
-      lines += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="st-line${met ? ' st-line-met' : ''}" marker-end="url(#arrowhead${met ? 'Met' : ''})"/>`;
+      const met = (from.current_level || 0) >= p.level;
+
+      // 三次贝塞尔曲线
+      const midY = (y1 + y2) / 2;
+      const path = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+      lines += `<path d="${path}" class="st-line${met ? ' st-line-met' : ''}" marker-end="url(#arrowhead${met ? 'Met' : ''})"/>`;
     }
   }
 
@@ -164,7 +307,7 @@ function _renderSkillTreeCanvas() {
   let nodes = '';
   for (const id of visibleIds) {
     const s = skills[id];
-    const pos = s.position || { x: 0, y: 0 };
+    const pos = positions[id] || { x: 0, y: 0 };
     const px = pos.x + ofsX;
     const py = pos.y + ofsY;
     const maxLv = s.max_level || (s.levels ? s.levels.length : 1);
@@ -181,9 +324,9 @@ function _renderSkillTreeCanvas() {
     nodes += `
       <g class="${cls}" data-skill-id="${escHtml(id)}" transform="translate(${px},${py})" onclick="_selectSkillNode('${escHtml(id)}')" style="cursor:pointer">
         <rect width="${SKILL_NODE_W}" height="${SKILL_NODE_H}" rx="${SKILL_NODE_R}" ry="${SKILL_NODE_R}" />
-        <text x="${SKILL_NODE_W / 2}" y="24" text-anchor="middle" class="st-node-icon">${escHtml(s.icon || '⚡')}</text>
-        <text x="${SKILL_NODE_W / 2}" y="42" text-anchor="middle" class="st-node-name">${escHtml(s.name || id)}</text>
-        <text x="${SKILL_NODE_W / 2}" y="57" text-anchor="middle" class="st-node-level">${lvStr}</text>
+        <text x="${SKILL_NODE_W / 2}" y="26" text-anchor="middle" class="st-node-icon">${escHtml(s.icon || '⚡')}</text>
+        <text x="${SKILL_NODE_W / 2}" y="44" text-anchor="middle" class="st-node-name">${escHtml(s.name || id)}</text>
+        <text x="${SKILL_NODE_W / 2}" y="60" text-anchor="middle" class="st-node-level">${lvStr}</text>
       </g>`;
   }
 
@@ -343,8 +486,6 @@ function _populateSkillForm(skillId) {
   $('#skillEditDesc').value = s ? (s.description || '') : '';
   $('#skillEditCategory').value = s ? (s.category || '') : '';
   $('#skillEditCurLevel').value = s ? (s.current_level || 0) : 0;
-  $('#skillEditPosX').value = s && s.position ? s.position.x : _autoSkillPosition().x;
-  $('#skillEditPosY').value = s && s.position ? s.position.y : _autoSkillPosition().y;
 
   // 前置技能
   const prereqContainer = $('#skillEditPrereqs');
@@ -365,17 +506,7 @@ function _populateSkillForm(skillId) {
   }
 }
 
-function _autoSkillPosition() {
-  const skills = _skillTreeData.skills || {};
-  const count = Object.keys(skills).length;
-  const cols = 4;
-  const gapX = 150;
-  const gapY = 100;
-  return {
-    x: (count % cols) * gapX,
-    y: Math.floor(count / cols) * gapY
-  };
-}
+
 
 function _addSkillPrereqRow(skillId, level) {
   const container = $('#skillEditPrereqs');
@@ -438,10 +569,6 @@ function saveSkillNode() {
     description: $('#skillEditDesc').value.trim(),
     category: $('#skillEditCategory').value.trim(),
     current_level: parseInt($('#skillEditCurLevel').value) || 0,
-    position: {
-      x: parseInt($('#skillEditPosX').value) || 0,
-      y: parseInt($('#skillEditPosY').value) || 0
-    },
     prerequisites: [],
     levels: []
   };

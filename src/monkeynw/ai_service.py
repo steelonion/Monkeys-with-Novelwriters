@@ -132,8 +132,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
               {{"level": 1, "effect": "效果描述", "cost": {{"skill_points": 1, "proficiency": 0}}}},
               {{"level": 2, "effect": "效果描述", "cost": {{"skill_points": 2, "proficiency": 10}}}}
             ],
-            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}],
-            "position": {{"x": 0, "y": 0}}
+            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}]
           }},
           "skill_id_2": {{
             "name": "另一个技能",
@@ -146,8 +145,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
               {{"level": 1, "effect": "Lv1效果", "cost": {{"skill_points": 2}}}},
               {{"level": 2, "effect": "Lv2效果", "cost": {{"skill_points": 4}}}}
             ],
-            "prerequisites": [],
-            "position": {{"x": 1, "y": 0}}
+            "prerequisites": []
           }}
         }}
       }}
@@ -182,12 +180,12 @@ SYSTEM_PROMPT_TEMPLATE = """\
   · **禁止**使用 `tree_branches`、`branches`、`groups` 或任何嵌套分组结构。所有技能**必须**直接放在顶层的 `skills` 对象下，用 `category` 字段标注分类。
   · `categories` 数组列出所有分类名（如 ["生存", "魔法", "辅助"]），技能通过 `category` 字段引用这些分类。
   · `skills` 是一个扁平字典，键为技能ID(如 "survival_hunting")，值为技能对象。**不要**在 skills 内部再嵌套分组。
-  · 每个技能对象必须包含：name, description, category, icon, current_level, max_level, levels(数组), prerequisites(数组), position({{x,y}})。
+  · 每个技能对象必须包含：name, description, category, icon, current_level, max_level, levels(数组), prerequisites(数组)。
   · levels 数组中每个元素：{{"level": N, "effect": "效果", "cost": {{"skill_points": N}}}}。
   · 当剧情中角色**习得新技能、技能升级、获得技能点/熟练度**时，必须更新 skill_tree。
   · 更新 skill_tree 时只需列出变化的部分（如 skill_points 变化、某技能 current_level 提升、新增技能等），未变化的技能不需要重复列出。但新增技能时必须提供完整结构。
-  · position 字段用于前端画布显示位置，新增技能时请自动分配合理位置（x/y 整数，按 1-2 间距排列）。
   · 如果角色已有 skill_tree 但剧情中没有技能变化，则不需要在输出中包含 skill_tree。
+  · **不需要**提供 `position` 字段，前端会自动根据技能依赖关系计算布局。
   · **错误示例**（禁止）：`"tree_branches": {{"survival": {{"skills": ...}}}}` ← 不要这样嵌套！
   · **正确示例**：`"skills": {{"survival_hunting": {{"category": "生存", ...}}, "magic_fire": {{"category": "魔法", ...}}}}` ← 所有技能扁平展开在 skills 下。
 - JSON 必须合法，可以被直接解析。
@@ -299,8 +297,7 @@ CHAT_SYSTEM_PROMPT_TEMPLATE = """\
               {{"level": 1, "effect": "效果", "cost": {{"skill_points": 1}}}},
               {{"level": 2, "effect": "效果", "cost": {{"skill_points": 2}}}}
             ],
-            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}],
-            "position": {{"x": 0, "y": 0}}
+            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}]
           }}
         }}
       }}
@@ -323,7 +320,7 @@ CHAT_SYSTEM_PROMPT_TEMPLATE = """\
 - 普通剧情讨论不需要附状态更新。
 - JSON 中只列出需要变更的字段，不要列出未变化的字段。
 - **skill_tree（技能树）**：当讨论涉及角色技能变化时（如学会新技能、技能升级、获得技能点/熟练度），需要在 skill_tree 中更新。只列出变化的部分，新增技能需提供完整结构。
-- **skill_tree 格式严格要求**：skill_tree 是扁平结构，顶层只有 `skill_points`、`proficiency`、`categories`(string[])、`skills`(扁平字典)。所有技能直接放在 `skills` 下，通过 `category` 字段标注分类。**禁止**使用 `tree_branches`、`branches` 等嵌套分组结构。
+- **skill_tree 格式严格要求**：skill_tree 是扁平结构，顶层只有 `skill_points`、`proficiency`、`categories`(string[])、`skills`(扁平字典)。所有技能直接放在 `skills` 下，通过 `category` 字段标注分类。**禁止**使用 `tree_branches`、`branches` 等嵌套分组结构。不需要提供 `position` 字段。
 - 如果用户没有要求更新状态，就正常回复即可，不要加分隔符。
 """
 
