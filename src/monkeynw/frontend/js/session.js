@@ -20,7 +20,6 @@ function renderSessionList() {
          onclick="selectSession('${s.session_id}')">
       <div class="session-item-info">
         <div class="name">${escHtml(s.name)}</div>
-        <div class="meta">${s.steps_count || 0} 步</div>
       </div>
       <button class="delete-btn" onclick="event.stopPropagation();deleteSession('${s.session_id}')" title="删除">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
@@ -251,6 +250,7 @@ function renderSession(session) {
   $('#btnUndo').disabled = history.length === 0;
   $('#btnClearHistory').disabled = history.length === 0;
   $('#btnNewChapter').disabled = false;
+  $('#btnBackup').disabled = false;
 
   // 切换到写作 Tab & 清理聊天历史
   switchMainTab('story');
@@ -285,6 +285,7 @@ function showWelcome() {
   $('#btnUndo').disabled = true;
   $('#btnClearHistory').disabled = true;
   $('#btnNewChapter').disabled = true;
+  $('#btnBackup').disabled = true;
   currentMainline = [];
   currentMainlineSummary = '';
   currentMainlinePrefix = '';
@@ -319,6 +320,14 @@ async function clearHistory() {
     renderSession(session);
     showToast('对话历史已清理');
   } catch (e) { showToast('清理失败: ' + e.message); }
+}
+
+async function backupSession() {
+  if (!currentSessionId) return;
+  try {
+    const result = await apiJson(`/api/session/${currentSessionId}/backup`, { method: 'POST' });
+    showToast('备份成功: ' + result.filepath);
+  } catch (e) { showToast('备份失败: ' + e.message); }
 }
 
 // ─────────── 写作配置渲染 ───────────

@@ -548,6 +548,17 @@ async def start_new_chapter(session_id: str, req: NewChapterRequest):
     return new_session.model_dump()
 
 
+# ────────────────────────────── 备份 ──────────────────────────────────
+
+@app.post("/api/session/{session_id}/backup")
+async def backup_session(session_id: str):
+    """备份会话 JSON 到 backups 目录"""
+    filepath = session_manager.backup_session(session_id)
+    if not filepath:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return {"status": "ok", "filepath": filepath}
+
+
 # ────────────────────────────── 导出 ──────────────────────────────────
 
 @app.get("/api/session/{session_id}/mainline/export")

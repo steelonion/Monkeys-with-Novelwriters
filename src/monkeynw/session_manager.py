@@ -18,10 +18,12 @@ from .models import (
 # 存储路径（运行时数据，相对于 CWD）
 SESSIONS_DIR = Path.cwd() / "sessions"
 EXPORTS_DIR = Path.cwd() / "exports"
+BACKUPS_DIR = Path.cwd() / "backups"
 
 # 确保目录存在
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class SessionManager:
@@ -542,6 +544,23 @@ class SessionManager:
         self._save_to_disk(new_session)
 
         return new_session
+
+    # ─────────────── 备份会话 ───────────────
+
+    def backup_session(self, session_id: str) -> str | None:
+        """将会话 JSON 备份到 backups 目录，返回备份文件路径"""
+        session = self.get_session(session_id)
+        if not session:
+            return None
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_name = session.info.name.replace("/", "_").replace("\\", "_")
+        filename = f"{safe_name}_{timestamp}_{session_id}.json"
+        filepath = BACKUPS_DIR / filename
+
+        # 将会话完整数据写入备份文件
+        filepath.write_text(session.model_dump_json(indent=2), encoding="utf-8")
+        return str(filepath)
 
     # ─────────────── 导出为文件 ───────────────
 
