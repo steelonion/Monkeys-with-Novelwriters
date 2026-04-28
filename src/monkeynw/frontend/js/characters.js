@@ -18,7 +18,7 @@ function showCharDetail(c) {
   }
 
   let skillTreeHtml = '';
-  if (c.skill_tree && c.skill_tree.skills && Object.keys(c.skill_tree.skills).length) {
+  if (_isSkillTreeEnabled() && c.skill_tree && c.skill_tree.skills && Object.keys(c.skill_tree.skills).length) {
     const st = c.skill_tree;
     const skillCount = Object.keys(st.skills).length;
     const unlockedCount = Object.values(st.skills).filter(s => (s.current_level || 0) > 0).length;

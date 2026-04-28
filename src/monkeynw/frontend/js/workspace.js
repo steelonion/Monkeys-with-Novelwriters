@@ -97,7 +97,9 @@ function renderStatePanelCharacters(container, current, baseline, target) {
 
     html += `<div class="${cardClass}" data-char-name="${escHtml(charData.name)}" data-target="${target}">`;
     html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}`;
-    html += `<button class="ws-skill-tree-btn" title="技能树" onclick="event.stopPropagation(); openSkillTreePanel(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">🌳</button>`;
+    if (_isSkillTreeEnabled()) {
+      html += `<button class="ws-skill-tree-btn" title="技能树" onclick="event.stopPropagation(); openSkillTreePanel(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">🌳</button>`;
+    }
     html += `<span class="ws-edit-btn" title="编辑" onclick="event.stopPropagation(); openEditCharState(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">✏</span></div>`;
 
     const fields = [
@@ -127,7 +129,7 @@ function renderStatePanelCharacters(container, current, baseline, target) {
     }
 
     // 技能树摘要
-    if (charData.skill_tree && charData.skill_tree.skills && Object.keys(charData.skill_tree.skills).length) {
+    if (_isSkillTreeEnabled() && charData.skill_tree && charData.skill_tree.skills && Object.keys(charData.skill_tree.skills).length) {
       const st = charData.skill_tree;
       const skillCount = Object.keys(st.skills).length;
       const unlockedCount = Object.values(st.skills).filter(s => (s.current_level || 0) > 0).length;
@@ -147,8 +149,13 @@ function _isCharChanged(cur, ml) {
   if (JSON.stringify(cur.relationships || {}) !== JSON.stringify(ml.relationships || {})) return true;
   if (JSON.stringify(cur.inventory || []) !== JSON.stringify(ml.inventory || [])) return true;
   if (JSON.stringify(cur.custom_fields || {}) !== JSON.stringify(ml.custom_fields || {})) return true;
-  if (JSON.stringify(cur.skill_tree || {}) !== JSON.stringify(ml.skill_tree || {})) return true;
+  if (_isSkillTreeEnabled() && JSON.stringify(cur.skill_tree || {}) !== JSON.stringify(ml.skill_tree || {})) return true;
   return false;
+}
+
+function _isSkillTreeEnabled() {
+  return _currentSession && _currentSession.info && _currentSession.info.session_config
+    && _currentSession.info.session_config.skill_tree_enabled !== false;
 }
 
 function renderStatePanelWorld(container, current, baseline, target) {
@@ -284,14 +291,12 @@ async function saveWorldState() {
     if (k) wsObj.extra_settings[k] = v;
   });
 
+  const existingSc = (_currentSession.info && _currentSession.info.session_config) || {};
   const scObj = {
     current_arc: $('#editWorldArc').value.trim(),
-    custom_instructions: target === 'mainline'
-      ? ((_currentSession.info && _currentSession.info.session_config) || {}).custom_instructions || ''
-      : ((_currentSession.info && _currentSession.info.session_config) || {}).custom_instructions || '',
-    custom_field_defs: target === 'mainline'
-      ? ((_currentSession.info && _currentSession.info.session_config) || {}).custom_field_defs || []
-      : ((_currentSession.info && _currentSession.info.session_config) || {}).custom_field_defs || [],
+    custom_instructions: existingSc.custom_instructions || '',
+    custom_field_defs: existingSc.custom_field_defs || [],
+    skill_tree_enabled: existingSc.skill_tree_enabled !== false,
   };
 
   try {

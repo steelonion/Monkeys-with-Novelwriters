@@ -60,6 +60,7 @@ async function createSession() {
       custom_field_defs: getCustomFieldDefs(),
       summary_max_length: parseInt($('#newSummaryMaxLength').value) || 800,
       summary_auto_length: $('#newSummaryAutoLength').checked,
+      skill_tree_enabled: $('#newSkillTreeEnabled').checked,
     },
     characters: {},
   };
@@ -142,6 +143,7 @@ function clearSessionFormFields() {
   ['#newSessionName','#newTitle','#newGenre','#newBackground','#newRules','#newArc','#newInstructions','#smartText'].forEach(s => $(s).value = '');
   $('#newSummaryMaxLength').value = 800;
   $('#newSummaryAutoLength').checked = true;
+  $('#newSkillTreeEnabled').checked = true;
   toggleSummaryAutoMode();
   $('#smartParseStatus').style.display = 'none';
   $('#customFieldDefsList').innerHTML = '';
@@ -167,6 +169,7 @@ async function openEditSessionModal() {
     $('#newInstructions').value = sc.custom_instructions || '';
     $('#newSummaryMaxLength').value = sc.summary_max_length || 800;
     $('#newSummaryAutoLength').checked = sc.summary_auto_length !== false;
+    $('#newSkillTreeEnabled').checked = sc.skill_tree_enabled !== false;
     toggleSummaryAutoMode();
 
     // 填充自定义字段定义
@@ -202,6 +205,7 @@ async function updateSessionSettings() {
     custom_field_defs: getCustomFieldDefs(),
     summary_max_length: parseInt($('#newSummaryMaxLength').value) || 800,
     summary_auto_length: $('#newSummaryAutoLength').checked,
+    skill_tree_enabled: $('#newSkillTreeEnabled').checked,
   };
 
   try {
@@ -337,10 +341,12 @@ function renderSessionConfig(sc) {
   const summaryLenText = sc.summary_auto_length !== false
     ? '自动（当前 ' + computeAutoSummaryLength() + ' 字）'
     : (sc.summary_max_length || 800) + ' 字';
+  const skillTreeStatus = sc.skill_tree_enabled !== false ? '已启用' : '已关闭';
   const fields = [
     ['剧情弧', sc.current_arc],
     ['写作风格', sc.custom_instructions],
     ['概述字数', summaryLenText],
+    ['技能树', skillTreeStatus],
   ];
   let html = '';
   for (const [label, val] of fields) {

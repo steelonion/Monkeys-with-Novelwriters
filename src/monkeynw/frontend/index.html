@@ -266,6 +266,16 @@
             <span class="form-hint" style="margin-top:2px;display:block">自动模式按主线总字数智能调整（短文本~25%、长文本~5%）；手动模式可指定 800-5000 字</span>
           </label>
 
+          <label>技能树系统
+            <div class="toggle-row" style="margin-top:4px">
+              <label class="toggle-label">
+                <input type="checkbox" id="newSkillTreeEnabled" checked />
+                <span>启用角色技能树</span>
+              </label>
+            </div>
+            <span class="form-hint">关闭后，所有角色将不再显示技能树相关功能，AI 也不会更新技能树。</span>
+          </label>
+
           <div class="form-section-title">🧩 角色自定义字段</div>
           <p class="form-hint">定义本会话中角色需要追踪的特殊属性（如修为境界、技能、等级等），AI 会自动为每个角色维护这些字段。</p>
           <div id="customFieldDefsList" class="custom-field-defs-list"></div>

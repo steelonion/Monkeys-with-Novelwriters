@@ -58,6 +58,92 @@ def _debug_log(label: str, messages: list[dict], response_text: str, **extra):
 
 # ────────────────────────────── 提示词模板 ──────────────────────────────
 
+# 技能树相关的提示词片段（仅在 skill_tree_enabled 时使用）
+_SKILL_TREE_JSON_PART = """\
+      "skill_tree": {{
+        "skill_points": 10,
+        "proficiency": 50,
+        "categories": ["战斗", "生存", "魔法"],
+        "skills": {{
+          "skill_id_1": {{
+            "name": "技能名",
+            "description": "技能描述",
+            "category": "战斗",
+            "icon": "⚔️",
+            "current_level": 1,
+            "max_level": 3,
+            "levels": [
+              {{"level": 1, "effect": "效果描述", "cost": {{"skill_points": 1, "proficiency": 0}}}},
+              {{"level": 2, "effect": "效果描述", "cost": {{"skill_points": 2, "proficiency": 10}}}}
+            ],
+            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}]
+          }},
+          "skill_id_2": {{
+            "name": "另一个技能",
+            "description": "描述",
+            "category": "生存",
+            "icon": "🌿",
+            "current_level": 2,
+            "max_level": 5,
+            "levels": [
+              {{"level": 1, "effect": "Lv1效果", "cost": {{"skill_points": 2}}}},
+              {{"level": 2, "effect": "Lv2效果", "cost": {{"skill_points": 4}}}}
+            ],
+            "prerequisites": []
+          }}
+        }}
+      }}"""
+
+_SKILL_TREE_NOTES_PART = """\
+- **skill_tree（技能树）格式严格要求**（必须精确遵守，禁止自行发明结构）：
+  · skill_tree 是**扁平结构**，顶层只有 4 个键：`skill_points`(number)、`proficiency`(number)、`categories`(string[])、`skills`(object)。
+  · **禁止**使用 `tree_branches`、`branches`、`groups` 或任何嵌套分组结构。所有技能**必须**直接放在顶层的 `skills` 对象下，用 `category` 字段标注分类。
+  · `categories` 数组列出所有分类名（如 ["生存", "魔法", "辅助"]），技能通过 `category` 字段引用这些分类。
+  · `skills` 是一个扁平字典，键为技能ID(如 "survival_hunting")，值为技能对象。**不要**在 skills 内部再嵌套分组。
+  · 每个技能对象必须包含：name, description, category, icon, current_level, max_level, levels(数组), prerequisites(数组)。
+  · levels 数组中每个元素：{{"level": N, "effect": "效果", "cost": {{"skill_points": N}}}}。
+  · 当剧情中角色**习得新技能、技能升级、获得技能点/熟练度**时，必须更新 skill_tree。
+  · 更新 skill_tree 时只需列出变化的部分（如 skill_points 变化、某技能 current_level 提升、新增技能等），未变化的技能不需要重复列出。但新增技能时必须提供完整结构。
+  · 如果角色已有 skill_tree 但剧情中没有技能变化，则不需要在输出中包含 skill_tree。
+  · **不需要**提供 `position` 字段，前端会自动根据技能依赖关系计算布局。
+  · **错误示例**（禁止）：`"tree_branches": {{"survival": {{"skills": ...}}}}` ← 不要这样嵌套！
+  · **正确示例**：`"skills": {{"survival_hunting": {{"category": "生存", ...}}, "magic_fire": {{"category": "魔法", ...}}}}` ← 所有技能扁平展开在 skills 下。"""
+
+_SKILL_TREE_CHAT_JSON_PART = """\
+      "skill_tree": {{
+        "skill_points": 10,
+        "proficiency": 50,
+        "categories": ["战斗", "辅助"],
+        "skills": {{
+          "技能ID": {{
+            "name": "技能名",
+            "description": "技能描述",
+            "category": "战斗",
+            "icon": "⚔️",
+            "current_level": 2,
+            "max_level": 3,
+            "levels": [
+              {{"level": 1, "effect": "效果", "cost": {{"skill_points": 1}}}},
+              {{"level": 2, "effect": "效果", "cost": {{"skill_points": 2}}}}
+            ],
+            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}]
+          }}
+        }}
+      }}"""
+
+_SKILL_TREE_CHAT_NOTES_PART = """\
+- **skill_tree（技能树）**：当讨论涉及角色技能变化时（如学会新技能、技能升级、获得技能点/熟练度），需要在 skill_tree 中更新。只列出变化的部分，新增技能需提供完整结构。
+- **skill_tree 格式严格要求**：skill_tree 是扁平结构，顶层只有 `skill_points`、`proficiency`、`categories`(string[])、`skills`(扁平字典)。所有技能直接放在 `skills` 下，通过 `category` 字段标注分类。**禁止**使用 `tree_branches`、`branches` 等嵌套分组结构。不需要提供 `position` 字段。"""
+
+
+def _build_skill_tree_sections(sc: SessionConfig) -> tuple[str, str, str, str]:
+    """根据会话配置返回四个技能树提示片段：(主提示词JSON部分, 主提示词备注部分, 聊天提示词JSON部分, 聊天提示词备注部分)
+    如果 skill_tree_enabled 为 False，返回空字符串。"""
+    if sc.skill_tree_enabled:
+        return _SKILL_TREE_JSON_PART, _SKILL_TREE_NOTES_PART, _SKILL_TREE_CHAT_JSON_PART, _SKILL_TREE_CHAT_NOTES_PART
+    return "", "", "", ""
+
+
 SYSTEM_PROMPT_TEMPLATE = """\
 你是一位专业的小说创作助手。你需要根据用户提供的设定和提示，{task_description}。
 
@@ -116,39 +202,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
       "custom_fields": {{
         "自定义字段名": "任意值（字符串/数组/对象均可）"
       }},
-      "skill_tree": {{
-        "skill_points": 10,
-        "proficiency": 50,
-        "categories": ["战斗", "生存", "魔法"],
-        "skills": {{
-          "skill_id_1": {{
-            "name": "技能名",
-            "description": "技能描述",
-            "category": "战斗",
-            "icon": "⚔️",
-            "current_level": 1,
-            "max_level": 3,
-            "levels": [
-              {{"level": 1, "effect": "效果描述", "cost": {{"skill_points": 1, "proficiency": 0}}}},
-              {{"level": 2, "effect": "效果描述", "cost": {{"skill_points": 2, "proficiency": 10}}}}
-            ],
-            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}]
-          }},
-          "skill_id_2": {{
-            "name": "另一个技能",
-            "description": "描述",
-            "category": "生存",
-            "icon": "🌿",
-            "current_level": 2,
-            "max_level": 5,
-            "levels": [
-              {{"level": 1, "effect": "Lv1效果", "cost": {{"skill_points": 2}}}},
-              {{"level": 2, "effect": "Lv2效果", "cost": {{"skill_points": 4}}}}
-            ],
-            "prerequisites": []
-          }}
-        }}
-      }}
+{skill_tree_json_part}
     }}
   }},
   "world_update": {{
@@ -175,19 +229,7 @@ SYSTEM_PROMPT_TEMPLATE = """\
 - locations_update 只列出新出现或发生变化的地点。
 - custom_fields 用于存储任何小说特有的角色属性（如等级、属性值、能力、阵营、修为境界、血统、法术、好感度、阵法、体质等），请根据角色设定中已有的 custom_fields 保持格式一致并更新变化的内容。已有的 custom_fields 键不要遗漏。
 - **重要**：当角色的某些状态信息（如修为等级、魔力值、战斗力、阵营声望等）无法被 name/description/appearance/outfit/personality/status/location/relationships/inventory/notes 这些基础字段充分表达时，**必须**将其作为新的 custom_fields 键写入。主动发现并创建新的自定义字段，而不是将所有信息挤入 status 或 notes。
-- **skill_tree（技能树）格式严格要求**（必须精确遵守，禁止自行发明结构）：
-  · skill_tree 是**扁平结构**，顶层只有 4 个键：`skill_points`(number)、`proficiency`(number)、`categories`(string[])、`skills`(object)。
-  · **禁止**使用 `tree_branches`、`branches`、`groups` 或任何嵌套分组结构。所有技能**必须**直接放在顶层的 `skills` 对象下，用 `category` 字段标注分类。
-  · `categories` 数组列出所有分类名（如 ["生存", "魔法", "辅助"]），技能通过 `category` 字段引用这些分类。
-  · `skills` 是一个扁平字典，键为技能ID(如 "survival_hunting")，值为技能对象。**不要**在 skills 内部再嵌套分组。
-  · 每个技能对象必须包含：name, description, category, icon, current_level, max_level, levels(数组), prerequisites(数组)。
-  · levels 数组中每个元素：{{"level": N, "effect": "效果", "cost": {{"skill_points": N}}}}。
-  · 当剧情中角色**习得新技能、技能升级、获得技能点/熟练度**时，必须更新 skill_tree。
-  · 更新 skill_tree 时只需列出变化的部分（如 skill_points 变化、某技能 current_level 提升、新增技能等），未变化的技能不需要重复列出。但新增技能时必须提供完整结构。
-  · 如果角色已有 skill_tree 但剧情中没有技能变化，则不需要在输出中包含 skill_tree。
-  · **不需要**提供 `position` 字段，前端会自动根据技能依赖关系计算布局。
-  · **错误示例**（禁止）：`"tree_branches": {{"survival": {{"skills": ...}}}}` ← 不要这样嵌套！
-  · **正确示例**：`"skills": {{"survival_hunting": {{"category": "生存", ...}}, "magic_fire": {{"category": "魔法", ...}}}}` ← 所有技能扁平展开在 skills 下。
+{skill_tree_notes}
 - JSON 必须合法，可以被直接解析。
 """
 
@@ -281,26 +323,7 @@ CHAT_SYSTEM_PROMPT_TEMPLATE = """\
     "角色名": {{
       "要更新的字段": "新的值",
       "custom_fields": {{"字段名": "值"}},
-      "skill_tree": {{
-        "skill_points": 10,
-        "proficiency": 50,
-        "categories": ["战斗", "辅助"],
-        "skills": {{
-          "技能ID": {{
-            "name": "技能名",
-            "description": "技能描述",
-            "category": "战斗",
-            "icon": "⚔️",
-            "current_level": 2,
-            "max_level": 3,
-            "levels": [
-              {{"level": 1, "effect": "效果", "cost": {{"skill_points": 1}}}},
-              {{"level": 2, "effect": "效果", "cost": {{"skill_points": 2}}}}
-            ],
-            "prerequisites": [{{"skill_id": "前置技能ID", "level": 1}}]
-          }}
-        }}
-      }}
+{skill_tree_chat_json_part}
     }}
   }},
   "world_update": {{
@@ -319,8 +342,7 @@ CHAT_SYSTEM_PROMPT_TEMPLATE = """\
 - 只在用户**明确要求**更新状态时才附上状态更新 JSON。
 - 普通剧情讨论不需要附状态更新。
 - JSON 中只列出需要变更的字段，不要列出未变化的字段。
-- **skill_tree（技能树）**：当讨论涉及角色技能变化时（如学会新技能、技能升级、获得技能点/熟练度），需要在 skill_tree 中更新。只列出变化的部分，新增技能需提供完整结构。
-- **skill_tree 格式严格要求**：skill_tree 是扁平结构，顶层只有 `skill_points`、`proficiency`、`categories`(string[])、`skills`(扁平字典)。所有技能直接放在 `skills` 下，通过 `category` 字段标注分类。**禁止**使用 `tree_branches`、`branches` 等嵌套分组结构。不需要提供 `position` 字段。
+{skill_tree_chat_notes}
 - 如果用户没有要求更新状态，就正常回复即可，不要加分隔符。
 """
 
@@ -384,7 +406,7 @@ PARSE_TEXT_PROMPT = """\
 """
 
 
-def _build_characters_block(characters: dict[str, CharacterState]) -> str:
+def _build_characters_block(characters: dict[str, CharacterState], skill_tree_enabled: bool = True) -> str:
     """构建角色状态文本块"""
     if not characters:
         return "（暂无角色信息）"
@@ -411,7 +433,7 @@ def _build_characters_block(characters: dict[str, CharacterState]) -> str:
                     lines.append(f"- {cf_key}：{json.dumps(cf_val, ensure_ascii=False)}")
                 else:
                     lines.append(f"- {cf_key}：{cf_val}")
-        if char.skill_tree and isinstance(char.skill_tree, dict) and char.skill_tree.get("skills"):
+        if skill_tree_enabled and char.skill_tree and isinstance(char.skill_tree, dict) and char.skill_tree.get("skills"):
             st = char.skill_tree
             skills_data = st.get("skills", {})
             sp = st.get("skill_points", 0)
@@ -525,6 +547,9 @@ def build_chat_system_prompt(session: Session) -> str:
     chars = session.mainline_state.characters if session.mainline_state.characters else session.workspace.characters
     locs = session.mainline_state.locations if session.mainline_state.locations else session.workspace.locations
 
+    # 构建技能树提示片段
+    _, _, st_chat_json, st_chat_notes = _build_skill_tree_sections(sc)
+
     return CHAT_SYSTEM_PROMPT_TEMPLATE.format(
         title=ws.title or "未定",
         genre=ws.genre or "未定",
@@ -534,17 +559,19 @@ def build_chat_system_prompt(session: Session) -> str:
         custom_instructions=sc.custom_instructions or "无特殊要求",
         extra_settings=extra,
         locations_block=_build_locations_block(locs),
-        characters_block=_build_characters_block(chars),
+        characters_block=_build_characters_block(chars, skill_tree_enabled=sc.skill_tree_enabled),
         mainline_prefix=mainline_prefix,
         mainline_summary=mainline_summary,
         recent_story=_build_recent_story(session.workspace.history),
+        skill_tree_chat_json_part=st_chat_json,
+        skill_tree_chat_notes=st_chat_notes,
     )
 
 
 CHAT_STATE_SEPARATOR = "===STATE_UPDATE_SUGGESTION==="
 
 
-def parse_chat_response(raw_text: str) -> tuple[str, dict | None]:
+def parse_chat_response(raw_text: str, skill_tree_enabled: bool = True) -> tuple[str, dict | None]:
     """解析聊天回复，分离正文和可选的状态更新建议。
     返回: (reply_text, state_updates_or_None)
     """
@@ -571,7 +598,7 @@ def parse_chat_response(raw_text: str) -> tuple[str, dict | None]:
         return reply_text, None
 
     # 归一化 skill_tree 结构（防御 AI 输出 tree_branches 等非标格式）
-    if isinstance(state_updates, dict) and "characters" in state_updates:
+    if skill_tree_enabled and isinstance(state_updates, dict) and "characters" in state_updates:
         for char_name, char_data in state_updates["characters"].items():
             if isinstance(char_data, dict) and "skill_tree" in char_data:
                 char_data["skill_tree"] = _normalize_skill_tree(char_data["skill_tree"])
@@ -606,6 +633,9 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
     # 构建自定义字段定义提示
     custom_field_defs_hint = _build_custom_field_defs_hint(sc)
 
+    # 构建技能树提示片段
+    st_json, st_notes, _, _ = _build_skill_tree_sections(sc)
+
     # 模式相关文本
     is_adjust = (mode == "adjust")
 
@@ -638,13 +668,15 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
         custom_instructions=sc.custom_instructions or "无特殊要求",
         extra_settings=extra,
         locations_block=_build_locations_block(session.workspace.locations),
-        characters_block=_build_characters_block(session.workspace.characters),
+        characters_block=_build_characters_block(session.workspace.characters, skill_tree_enabled=sc.skill_tree_enabled),
         mainline_prefix=mainline_prefix,
         mainline_summary=mainline_summary,
         recent_story=recent_story,
         custom_field_defs_hint=custom_field_defs_hint,
         task_description=task_description,
         mode_specific_rules=mode_specific_rules,
+        skill_tree_json_part=st_json,
+        skill_tree_notes=st_notes,
     )
 
 
@@ -792,7 +824,9 @@ def parse_ai_response(
                             if "custom_fields" in char_data and isinstance(char_data["custom_fields"], dict):
                                 existing.custom_fields.update(char_data["custom_fields"])
                         elif field_name == "skill_tree":
-                            # skill_tree 做深度合并
+                            # skill_tree 做深度合并（仅在启用技能树系统时）
+                            if not existing_session_config.skill_tree_enabled:
+                                continue
                             if "skill_tree" in char_data and isinstance(char_data["skill_tree"], dict):
                                 st_update = _normalize_skill_tree(char_data["skill_tree"])
                                 if not existing.skill_tree:
@@ -1127,7 +1161,7 @@ class AIService:
             _debug_log("chat", messages, raw_text,
                        model=self.model, temperature=temperature)
 
-            reply_text, state_updates = parse_chat_response(raw_text)
+            reply_text, state_updates = parse_chat_response(raw_text, skill_tree_enabled=session.info.session_config.skill_tree_enabled)
             return reply_text, state_updates
         finally:
             _active_tasks -= 1

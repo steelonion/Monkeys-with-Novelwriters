@@ -68,6 +68,7 @@ class SessionConfig(BaseModel):
     custom_field_defs: list[CustomFieldDef] = Field(default_factory=list, description="角色自定义字段定义列表")
     summary_max_length: int = Field(default=800, ge=800, le=5000, description="主线概述的目标字数上限")
     summary_auto_length: bool = Field(default=True, description="是否根据主线总字数自动计算概述字数上限")
+    skill_tree_enabled: bool = Field(default=True, description="是否启用技能树系统")
 
 
 # ────────────────────────────── 历史步骤 ──────────────────────────────

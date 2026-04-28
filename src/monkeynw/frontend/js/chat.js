@@ -236,7 +236,7 @@ async function applyChatStateUpdate(cardId) {
         if (field === 'custom_fields' && typeof value === 'object') {
           if (!mergedChars[charName].custom_fields) mergedChars[charName].custom_fields = {};
           Object.assign(mergedChars[charName].custom_fields, value);
-        } else if (field === 'skill_tree' && typeof value === 'object') {
+        } else if (field === 'skill_tree' && typeof value === 'object' && _isSkillTreeEnabled()) {
           // skill_tree 深度合并
           if (!mergedChars[charName].skill_tree) mergedChars[charName].skill_tree = {};
           const existing = mergedChars[charName].skill_tree;

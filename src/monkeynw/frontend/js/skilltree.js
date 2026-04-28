@@ -54,6 +54,7 @@ function _emptySkillTree() {
 // ─────────── 打开技能树面板 ───────────
 function openSkillTreePanel(charName, target) {
   if (!currentSessionId || !_currentSession) { showToast('请先选择一个会话'); return; }
+  if (!_isSkillTreeEnabled()) { showToast('技能树系统已关闭，可在写作配置中重新启用'); return; }
 
   const chars = target === 'mainline'
     ? ((_currentSession.mainline_state && _currentSession.mainline_state.characters) || {})
