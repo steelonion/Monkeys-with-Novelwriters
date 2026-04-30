@@ -680,7 +680,8 @@ class SessionManager:
             session = Session.model_validate_json(fp.read_text(encoding="utf-8"))
             self._active_sessions[session_id] = session
             return session
-        except Exception:
+        except Exception as e:
+            print(f"[WARN] 加载会话 {session_id} 失败: {e}", flush=True)
             return None
 
 

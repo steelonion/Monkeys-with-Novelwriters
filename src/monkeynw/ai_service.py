@@ -534,7 +534,11 @@ def build_chat_system_prompt(session: Session) -> str:
     rules_text = "\n".join(f"  - {r}" for r in ws.rules) if ws.rules else "暂无"
     extra = ""
     if ws.extra_settings:
-        extra = "\n".join(f"- {k}：{v}" for k, v in ws.extra_settings.items())
+        parts = []
+        for k, v in ws.extra_settings.items():
+            val = json.dumps(v, ensure_ascii=False) if not isinstance(v, str) else v
+            parts.append(f"- {k}：{val}")
+        extra = "\n".join(parts)
 
     mainline_summary = session.info.mainline_summary.strip() if session.info.mainline_summary else ""
     if not mainline_summary:
@@ -619,7 +623,11 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
     rules_text = "\n".join(f"  - {r}" for r in ws.rules) if ws.rules else "暂无"
     extra = ""
     if ws.extra_settings:
-        extra = "\n".join(f"- {k}：{v}" for k, v in ws.extra_settings.items())
+        parts = []
+        for k, v in ws.extra_settings.items():
+            val = json.dumps(v, ensure_ascii=False) if not isinstance(v, str) else v
+            parts.append(f"- {k}：{val}")
+        extra = "\n".join(parts)
 
     # 主线概述
     mainline_summary = session.info.mainline_summary.strip() if session.info.mainline_summary else ""

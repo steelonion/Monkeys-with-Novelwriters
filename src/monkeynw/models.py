@@ -47,7 +47,7 @@ class WorldSetting(BaseModel):
     genre: str = Field(default="", description="小说类型(玄幻/科幻/都市等)")
     background: str = Field(default="", description="世界观背景描述")
     rules: list[str] = Field(default_factory=list, description="世界规则(力量体系/科技水平等)")
-    extra_settings: dict[str, str] = Field(default_factory=dict, description="其他自定义设定键值对")
+    extra_settings: dict[str, Any] = Field(default_factory=dict, description="其他自定义设定键值对")
 
 
 # ────────────────────────────── 自定义字段定义 ──────────────────────────────
