@@ -368,7 +368,7 @@
 
   <!-- ═══════════════════ 文章主线 Modal ═══════════════════ -->
   <div class="modal-overlay" id="mainlineModal">
-    <div class="modal modal-wide">
+    <div class="modal modal-mainline">
       <div class="modal-header">
         <h3>📌 文章主线</h3>
         <button class="btn btn-icon" onclick="closeModal('mainlineModal')">✕</button>
@@ -442,7 +442,7 @@
 
   <!-- ═══════════════════ 编辑角色状态 Modal ═══════════════════ -->
   <div class="modal-overlay" id="editCharStateModal">
-    <div class="modal modal-wide">
+    <div class="modal modal-char-edit">
       <div class="modal-header">
         <h3 id="editCharStateTitle">编辑角色状态</h3>
         <button class="btn btn-icon" onclick="closeModal('editCharStateModal')">✕</button>
@@ -451,13 +451,13 @@
         <input type="hidden" id="editCharTarget" />
         <input type="hidden" id="editCharOrigName" />
         <label>角色名 <input type="text" id="editCharStateName" placeholder="角色名" /></label>
-        <label>描述 <input type="text" id="editCharStateDesc" placeholder="角色基础描述" /></label>
-        <label>外貌 <input type="text" id="editCharStateAppearance" placeholder="外貌描述" /></label>
-        <label>着装 <input type="text" id="editCharStateOutfit" placeholder="当前着装" /></label>
-        <label>性格 <input type="text" id="editCharStatePersonality" placeholder="性格特点" /></label>
-        <label>当前状态 <input type="text" id="editCharStateStatus" placeholder="情绪/身体状况" /></label>
+        <label>描述 <textarea id="editCharStateDesc" class="charedit-auto" rows="3" placeholder="角色基础描述" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea></label>
+        <label>外貌 <textarea id="editCharStateAppearance" class="charedit-auto" rows="3" placeholder="外貌描述" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea></label>
+        <label>着装 <textarea id="editCharStateOutfit" class="charedit-auto" rows="2" placeholder="当前着装" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea></label>
+        <label>性格 <textarea id="editCharStatePersonality" class="charedit-auto" rows="2" placeholder="性格特点" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea></label>
+        <label>当前状态 <textarea id="editCharStateStatus" class="charedit-auto" rows="3" placeholder="情绪/身体状况" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea></label>
         <label>位置 <input type="text" id="editCharStateLocation" placeholder="所在位置" /></label>
-        <label>备注 <textarea id="editCharStateNotes" rows="2" placeholder="其他备注"></textarea></label>
+        <label>备注 <textarea id="editCharStateNotes" class="charedit-auto" rows="3" placeholder="其他备注" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea></label>
         <div class="form-section-title">关系</div>
         <div id="editCharRels" class="dynamic-rows"></div>
         <button class="btn btn-sm btn-ghost" type="button" onclick="addEditCharRelRow()">+ 添加关系</button>

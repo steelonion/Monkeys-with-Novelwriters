@@ -64,6 +64,11 @@
   cursor: default;
 }
 
+/* 主线 Modal 宽度 */
+.modal-mainline {
+  width: 70vw;
+}
+
 /* 主线 Modal 内部 */
 .mainline-summary-section {
   margin-bottom: 24px;
@@ -89,8 +94,6 @@
   background: var(--bg-input);
   padding: 14px 18px;
   border-radius: var(--radius-sm);
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 .mainline-entries {
@@ -142,6 +145,10 @@
   border-color: var(--danger);
   color: var(--danger);
 }
+.mainline-entry-actions button.btn-edit:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .mainline-entry-actions button.btn-move:hover {
   border-color: var(--accent);
   color: var(--accent);
@@ -153,8 +160,78 @@
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 150px;
-  overflow-y: auto;
+}
+
+/* 主线条目编辑区 */
+.mainline-entry-edit-textarea {
+  width: 100%;
+  min-height: 120px;
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: border-color var(--transition);
+}
+.mainline-entry-edit-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.mainline-entry-edit-note {
+  width: 100%;
+  min-height: 36px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  margin-top: 6px;
+}
+.mainline-entry-edit-note:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.mainline-entry-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.mainline-entry-edit-actions button {
+  font-size: 0.78rem;
+  padding: 4px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+}
+.mainline-entry-edit-actions .btn-save-entry {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+.mainline-entry-edit-actions .btn-save-entry:hover {
+  opacity: 0.85;
+}
+.mainline-entry-edit-actions .btn-cancel-entry {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.mainline-entry-edit-actions .btn-cancel-entry:hover {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .mainline-entry-note {
   margin-top: 6px;

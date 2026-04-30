@@ -130,11 +130,21 @@ function openEditCharState(charName, target) {
 
   $('#btnDeleteChar').style.display = isNew ? 'none' : '';
 
+  // 自动调整所有 textarea 高度
+  _autoResizeCharTextareas();
+
   const tabLabel = target === 'mainline' ? '主线' : '工作区';
   $('#editCharStateTitle').textContent = isNew
     ? `添加角色（${tabLabel}）`
     : `编辑角色 · ${charName}（${tabLabel}）`;
   openModal('editCharStateModal');
+}
+
+function _autoResizeCharTextareas() {
+  document.querySelectorAll('#editCharStateModal .charedit-auto, #editCharStateModal .cf-val').forEach(ta => {
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  });
 }
 
 function addEditCharRelRow(name, desc) {
@@ -159,7 +169,7 @@ function addEditCharCfRow(key, val) {
   row.className = 'dynamic-row';
   row.innerHTML = `
     <input type="text" class="cf-key" placeholder="字段名" value="${escHtml(key)}" />
-    <textarea class="cf-val" rows="1" placeholder="值">${escHtml(val)}</textarea>
+    <textarea class="cf-val" rows="1" placeholder="值" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escHtml(val)}</textarea>
     <button class="btn btn-sm btn-ghost dynamic-remove" type="button" onclick="this.closest('.dynamic-row').remove()">✕</button>
   `;
   container.appendChild(row);

@@ -95,7 +95,7 @@ function renderStatePanelCharacters(container, current, baseline, target) {
     const cardClass = (isNew || isChanged) ? 'ws-char-card ws-changed' : 'ws-char-card';
     const badge = isNew ? '<span class="ws-badge-new">新</span>' : (isChanged ? '<span class="ws-badge-updated">已更新</span>' : '');
 
-    html += `<div class="${cardClass}" data-char-name="${escHtml(charData.name)}" data-target="${target}">`;
+    html += `<div class="${cardClass}" data-char-name="${escHtml(name)}" data-target="${target}">`;
     html += `<div class="ws-char-name">${escHtml(charData.name)}${badge}`;
     if (_isSkillTreeEnabled()) {
       html += `<button class="ws-skill-tree-btn" title="技能树" onclick="event.stopPropagation(); openSkillTreePanel(this.closest('.ws-char-card').dataset.charName, this.closest('.ws-char-card').dataset.target)">🌳</button>`;
@@ -213,7 +213,7 @@ function renderStatePanelLocations(container, current, baseline, target) {
     const locData = cur || bl;
 
     const cardClass = (isNew || isChanged) ? 'ws-loc-card ws-changed' : 'ws-loc-card';
-    html += `<div class="${cardClass}" data-loc-name="${escHtml(locData.name)}" data-target="${target}">`;
+    html += `<div class="${cardClass}" data-loc-name="${escHtml(name)}" data-target="${target}">`;
     html += `<div class="ws-loc-name">📍 ${escHtml(locData.name)}<span class="ws-edit-btn" title="编辑" onclick="event.stopPropagation(); openEditLocState(this.closest('.ws-loc-card').dataset.locName, this.closest('.ws-loc-card').dataset.target)">✏</span>`;
     if (isNew) html += ' <span class="ws-badge-new">新</span>';
     else if (isChanged) html += ' <span class="ws-badge-updated">已更新</span>';

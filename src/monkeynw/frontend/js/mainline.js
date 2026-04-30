@@ -94,11 +94,13 @@ function renderMainlineModal() {
         <div class="mainline-entry-actions">
           ${i > 0 ? `<button class="btn-move" onclick="moveMainlineEntry('${entry.entry_id}', -1)" title="上移">↑</button>` : ''}
           ${i < currentMainline.length - 1 ? `<button class="btn-move" onclick="moveMainlineEntry('${entry.entry_id}', 1)" title="下移">↓</button>` : ''}
+          <button class="btn-edit" onclick="startEditMainlineEntry('${entry.entry_id}')" title="编辑">✏</button>
           <button onclick="removeMainlineEntry('${entry.entry_id}')" title="移除">✕</button>
         </div>
       </div>
-      <div class="mainline-entry-text">${escHtml(entry.text)}</div>
-      ${entry.note ? `<div class="mainline-entry-note">📝 ${escHtml(entry.note)}</div>` : ''}
+      <div class="mainline-entry-text" id="ml-text-${entry.entry_id}">${escHtml(entry.text)}</div>
+      <div class="mainline-entry-note" id="ml-note-${entry.entry_id}" style="${entry.note ? '' : 'display:none'}">${entry.note ? '📝 ' + escHtml(entry.note) : ''}</div>
+      <div class="mainline-entry-edit-area" id="ml-edit-${entry.entry_id}" style="display:none"></div>
     </div>
   `).join('');
 }
@@ -180,6 +182,81 @@ async function moveMainlineEntry(entryId, direction) {
     renderMainlineModal();
   } catch (e) {
     showToast('排序失败: ' + e.message);
+  }
+}
+
+// ─────────── 主线编辑 ───────────
+
+function startEditMainlineEntry(entryId) {
+  const entry = currentMainline.find(e => e.entry_id === entryId);
+  if (!entry) return;
+
+  // 隐藏显示区，显示编辑区
+  $(`#ml-text-${entryId}`).style.display = 'none';
+  $(`#ml-note-${entryId}`).style.display = 'none';
+
+  const editArea = $(`#ml-edit-${entryId}`);
+  editArea.innerHTML = `
+    <textarea class="mainline-entry-edit-textarea" id="ml-edit-textarea-${entryId}">${escHtml(entry.text)}</textarea>
+    <input type="text" class="mainline-entry-edit-note" id="ml-edit-note-${entryId}" placeholder="备注（可选）" value="${escHtml(entry.note || '')}" />
+    <div class="mainline-entry-edit-actions">
+      <button class="btn-save-entry" onclick="saveMainlineEntry('${entryId}')">💾 保存</button>
+      <button class="btn-cancel-entry" onclick="cancelEditMainlineEntry('${entryId}')">取消</button>
+    </div>
+  `;
+  editArea.style.display = '';
+
+  // 自动聚焦并调整高度
+  const textarea = $(`#ml-edit-textarea-${entryId}`);
+  textarea.focus();
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.max(textarea.scrollHeight, 120) + 'px';
+}
+
+function cancelEditMainlineEntry(entryId) {
+  $(`#ml-edit-${entryId}`).style.display = 'none';
+  $(`#ml-text-${entryId}`).style.display = '';
+  const noteEl = $(`#ml-note-${entryId}`);
+  const entry = currentMainline.find(e => e.entry_id === entryId);
+  if (entry && entry.note) {
+    noteEl.style.display = '';
+  } else {
+    noteEl.style.display = 'none';
+  }
+}
+
+async function saveMainlineEntry(entryId) {
+  if (!currentSessionId) return;
+
+  const textarea = $(`#ml-edit-textarea-${entryId}`);
+  const noteInput = $(`#ml-edit-note-${entryId}`);
+  const newText = textarea.value.trim();
+  if (!newText) { showToast('段落内容不能为空'); return; }
+  const newNote = noteInput.value.trim();
+
+  const saveBtn = document.querySelector(`#ml-edit-${entryId} .btn-save-entry`);
+  const cancelBtn = document.querySelector(`#ml-edit-${entryId} .btn-cancel-entry`);
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ 保存中，正在重新生成概述...'; }
+  if (cancelBtn) cancelBtn.disabled = true;
+  startTaskPolling();
+
+  try {
+    const data = await apiJson(`/api/session/${currentSessionId}/mainline/${entryId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ text: newText, note: newNote }),
+    });
+
+    currentMainline = data.mainline || [];
+    currentMainlineSummary = data.mainline_summary || '';
+    renderMainlinePanel();
+    renderMainlineModal();
+    showToast('段落已保存');
+  } catch (e) {
+    showToast('保存失败: ' + e.message);
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 保存'; }
+    if (cancelBtn) cancelBtn.disabled = false;
+  } finally {
+    stopTaskPolling();
   }
 }
 

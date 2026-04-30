@@ -175,6 +175,8 @@ SYSTEM_PROMPT_TEMPLATE = """\
 1. 保持角色性格一致性，行为符合角色设定。
 2. 遵守世界观规则，不要违背已建立的设定。
 3. 文笔流畅，情节紧凑，富有画面感。
+4. **严格避免重复**：不要在相邻段落中重复相同描写、相同句式或相同情节推进。已交代过的事实、已描写过的场景细节、已表达过的角色情绪，不要换一种说法再说一遍。每次落笔都应推动故事向前发展，而非原地踏步。
+5. **避免冗余表述**：同一段内不要用多个相似句子表达同一个意思。对话中不要让人物反复强调同一个观点。描写动作时避免连续使用相同的句式结构。
 {mode_specific_rules}
 
 ## 输出格式要求（必须严格遵守）
@@ -640,17 +642,19 @@ def build_system_prompt(session: Session, suggested_length: int = 1000, mode: st
     is_adjust = (mode == "adjust")
 
     if is_adjust:
-        task_description = "根据用户的调整要求，对指定的小说片段进行修改和重写，输出一段新的内容"
+        task_description = "根据用户的调整要求，对指定的小说片段进行修改和重写，在保持行文自然流畅的前提下输出一段新的内容"
         mode_specific_rules = (
-            f"4. 你的任务是根据用户的调整要求，基于指定的原始片段进行改写，产出一段新的内容。\n"
-            f"5. 改写后的内容应保持大致剧情走向不变，但根据用户的调整要求进行修改和润色。\n"
-            f"6. 建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
+            f"6. 你的任务是根据用户的调整要求，基于指定的原始片段进行改写，产出一段新的内容。\n"
+            f"7. 改写后的内容应保持大致剧情走向不变，但根据用户的调整要求进行修改和润色。\n"
+            f"8. **调整的核心原则**：在满足用户调整要求的同时，必须保持行文的自然流畅。不要为了满足要求而让文字变得生硬、刻意或突兀。调整应该是润物细无声的——读者应该感受到文字更好，而非感觉到有人在「修改」过。对话要保持口语化，描写要自然，情节推进要平滑。\n"
+            f"9. **保留原文优点**：原始片段中写得好的部分——精彩的对话、生动的描写、自然的过渡——应尽量保留或以更好的方式重写，不要为了调整而全部推翻重来。\n"
+            f"10. 建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
         )
     else:
         task_description = "续写高质量的小说片段"
         mode_specific_rules = (
-            f"4. 续写内容要自然衔接上文。\n"
-            f"5. 本次续写的小说正文部分建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
+            f"6. 续写内容要自然衔接上文。\n"
+            f"7. 本次续写的小说正文部分建议约 {suggested_length} 字左右，可根据情节需要适当增减，但请确保片段完整、不在句中截断。"
         )
 
     # 调整模式下不提供历史对话，只依赖前文提要和主线总结（已在系统提示词中）
@@ -858,6 +862,10 @@ def parse_ai_response(
                                     existing.skill_tree["categories"] = list(auto_cats)
                         elif field_name in char_data and char_data[field_name]:
                             setattr(existing, field_name, char_data[field_name])
+                    # 如果 name 字段被更新，同步更新字典键名
+                    new_name = existing.name
+                    if new_name and new_name != char_name:
+                        updated_characters[new_name] = updated_characters.pop(char_name)
                 else:
                     # 新角色
                     try:
@@ -882,6 +890,10 @@ def parse_ai_response(
                     for field_name in LocationSetting.model_fields:
                         if field_name in loc_data and loc_data[field_name]:
                             setattr(existing_loc, field_name, loc_data[field_name])
+                    # 如果 name 字段被更新，同步更新字典键名
+                    new_loc_name = existing_loc.name
+                    if new_loc_name and new_loc_name != loc_name:
+                        updated_locations[new_loc_name] = updated_locations.pop(loc_name)
                 else:
                     try:
                         updated_locations[loc_name] = LocationSetting(**loc_data)
@@ -960,6 +972,7 @@ class AIService:
                     f"以下是需要调整的原始小说片段：\n\n{last_step.generated_text}\n\n"
                     f"---\n\n"
                     f"请根据以下调整要求，在保持大致剧情走向不变的前提下，重新输出一个改写后的完整片段。\n\n"
+                    f"重要提醒：在落实调整要求时，务必保持行文自然流畅。不要让修改痕迹过于明显，不要让对话变生硬，不要让描写变成机械地满足要求。好的调整应该是读者察觉不到的——故事读起来仍然一气呵成，只是变得更好。\n\n"
                     f"调整要求：{user_prompt}"
                 )},
             ]

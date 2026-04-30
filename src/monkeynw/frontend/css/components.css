@@ -211,6 +211,7 @@ label textarea::placeholder { color: var(--text-muted); }
 }
 .modal-overlay.open .modal { transform: translateY(0) scale(1); }
 .modal-wide { width: 560px; }
+.modal-char-edit { width: 75vw; max-width: 960px; }
 .modal-header {
   display: flex;
   align-items: center;
@@ -224,6 +225,17 @@ label textarea::placeholder { color: var(--text-muted); }
   overflow-y: auto;
   flex: 1;
 }
+
+/* 角色编辑 textarea 自动高度 */
+.modal-char-edit .modal-body textarea {
+  resize: vertical;
+  min-height: 56px;
+  line-height: 1.6;
+}
+.modal-char-edit .modal-body textarea.charedit-auto {
+  overflow-y: hidden;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;
